@@ -3,6 +3,7 @@ package com.github.bogdanovmn.comeplay.club;
 import com.github.bogdanovmn.comeplay.infrastructure.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -28,10 +29,7 @@ class ClubController {
 
     @GetMapping("/{clubId}")
     Club get(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
-        if (!clubService.isMember(clubId, userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("No access");
-        }
-        return clubService.get(clubId);
+        return clubService.get(clubId, userId);
     }
 
     @PostMapping

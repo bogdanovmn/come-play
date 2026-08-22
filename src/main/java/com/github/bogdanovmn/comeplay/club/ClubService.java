@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.club;
 
+import com.github.bogdanovmn.comeplay.security.AccessManagement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -16,6 +17,7 @@ import java.util.UUID;
 class ClubService {
 
     private final ClubRepository clubRepository;
+    private final AccessManagement accessManagement;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "clubs", key = "#userId")
@@ -30,7 +32,8 @@ class ClubService {
 
     @Transactional(readOnly = true)
     @Cacheable(value = "club", key = "#clubId")
-    public Club get(UUID clubId) {
+    public Club get(UUID clubId, UUID userId) {
+        accessManagement.requireMember(clubId, userId);
         return clubRepository.findById(clubId)
                 .orElseThrow(() -> new NoSuchElementException("Club not found: " + clubId));
     }
@@ -50,26 +53,26 @@ class ClubService {
     @Transactional
     @CacheEvict(value = {"club", "clubs"}, key = "#clubId")
     public void update(UUID clubId, String name, UUID userId) {
-        requireOwner(clubId, userId);
+        accessManagement.requireOwner(clubId, userId);
         clubRepository.update(clubId, name);
     }
 
     @Transactional
     @CacheEvict(value = {"club", "clubs"}, key = "#clubId")
     public void close(UUID clubId, UUID userId) {
-        requireOwner(clubId, userId);
+        accessManagement.requireOwner(clubId, userId);
         clubRepository.close(clubId);
     }
 
     @Transactional
     public List<InvitationBrief> listInvitations(UUID clubId, UUID userId) {
-        requireOwner(clubId, userId);
+        accessManagement.requireOwner(clubId, userId);
         return clubRepository.listInvitations(clubId);
     }
 
     @Transactional
     public Invitation createInvitation(UUID clubId, String name, UUID userId) {
-        requireOwner(clubId, userId);
+        accessManagement.requireOwner(clubId, userId);
         UUID invitationId = clubRepository.createInvitation(clubId, name, userId);
         return clubRepository.findInvitationById(invitationId).orElseThrow();
     }
@@ -79,16 +82,5 @@ class ClubService {
         Invitation invitation = clubRepository.findInvitationById(invitationId)
                 .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
         clubRepository.addMember(invitation.getClubId(), userId);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean isMember(UUID clubId, UUID userId) {
-        return clubRepository.isMember(clubId, userId);
-    }
-
-    private void requireOwner(UUID clubId, UUID userId) {
-        if (!clubRepository.isOwner(clubId, userId)) {
-            throw new AccessDeniedException("User " + userId + " is not owner of club " + clubId);
-        }
     }
 }
