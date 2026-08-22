@@ -1,0 +1,25 @@
+services:
+  cp-app:
+    build: .
+    image: comeplay:${BACKEND_VERSION:-latest}
+    container_name: cp-container
+    ports:
+      - "8084:8080"
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Moscow
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/comeplay
+      - SPRING_PROFILES_ACTIVE=prod
+      - OUTPUT=file
+      - JAVA_OPTS=-Xmx296m -Xmn96m -XX:MaxMetaspaceSize=88m -XX:CompressedClassSpaceSize=12m -Xss512k -XX:ReservedCodeCacheSize=24M -XX:MaxDirectMemorySize=32m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -XX:+UseCodeCacheFlushing -XX:+PrintFlagsFinal -verbose:sizes -Djdk.nio.maxCachedBufferSize=262144
+    volumes:
+      - /var/log/comeplay:/app/logs
+      - /home/backend/auth-service/jwt:/app/jwt
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    external: true
+    name: docker_shared-network

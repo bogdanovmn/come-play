@@ -1,19 +1,29 @@
 spring:
   application:
     name: come-play
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/come_play
-    username: come_play
-    password: come_play
+    url: jdbc:postgresql://hserver:5432/comeplay
+    username: root
+    password: 123
     driver-class-name: org.postgresql.Driver
-
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 3
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+
+
+security.roles.application-id-prefix: comeplay
 
 server:
   port: 8080
 
-logging:
-  level:
-    com.github.bogdanovmn.comeplay: DEBUG
+management:
+  endpoints.web.exposure.include: prometheus, health, metrics
+  prometheus.metrics.export.enabled: 'true'
+  metrics:
+    enable:
+      jvm: 'true'
+      percentiles-histogram:
+        http.server.requests: 'true'
+

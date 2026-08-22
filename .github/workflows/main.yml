@@ -1,0 +1,55 @@
+name: Deploy Backend
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build Backend
+        run: |
+          mvn -B -q clean package
+        working-directory: ./
+
+      - name: Set variables
+        id: vars
+        run: |
+          echo "TARGET_DIR=/home/backend/comeplay" >> $GITHUB_OUTPUT
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-5)
+          TIMESTAMP=$(date +'%Y%m%d')
+          echo "BACKEND_VERSION=$TIMESTAMP.$SHORT_SHA.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Copy files to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.JINOJ_HOST }}
+          port: ${{ secrets.JINOJ_PORT }}
+          username: ${{ secrets.JINOJ_USER }}
+          key: ${{ secrets.JINOJ_KEY }}
+          source: "target/come-play-*.jar,docker/*"
+          target: "${{ steps.vars.outputs.TARGET_DIR }}"
+          strip_components: 1
+
+      - name: Create and start container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.JINOJ_HOST }}
+          port: ${{ secrets.JINOJ_PORT }}
+          username: ${{ secrets.JINOJ_USER }}
+          key: ${{ secrets.JINOJ_KEY }}
+          script: |
+            cd ${{ steps.vars.outputs.TARGET_DIR }}
+            sed -i "s/BACKEND_VERSION=.*/BACKEND_VERSION=${{ steps.vars.outputs.BACKEND_VERSION }}/" .env
+            docker-compose down
+            docker-compose up -d --build
