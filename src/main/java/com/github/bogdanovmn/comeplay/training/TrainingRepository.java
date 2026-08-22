@@ -1,8 +1,9 @@
 package com.github.bogdanovmn.comeplay.training;
 
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Component;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -11,7 +12,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@Repository
+@RequiredArgsConstructor
 class TrainingRepository {
 
     private static final RowMapper<TrainingBrief> TRAINING_BRIEF_ROW_MAPPER = (rs, rowNum) -> TrainingBrief.builder()
@@ -32,10 +34,6 @@ class TrainingRepository {
         .build();
 
     private final NamedParameterJdbcTemplate jdbc;
-
-    TrainingRepository(NamedParameterJdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
 
     List<TrainingBrief> listByClub(UUID clubId) {
         return jdbc.query("""

@@ -1,7 +1,8 @@
 package com.github.bogdanovmn.comeplay.history;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -9,14 +10,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Component
+@Repository
+@RequiredArgsConstructor
 class HistoryRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
-
-    HistoryRepository(NamedParameterJdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
 
     void recordVisit(UUID clubId, UUID userId, LocalDate slotDate, String sportType) {
         jdbc.update("""

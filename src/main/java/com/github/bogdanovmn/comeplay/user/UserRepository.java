@@ -1,15 +1,17 @@
 package com.github.bogdanovmn.comeplay.user;
 
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Component;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@Repository
+@RequiredArgsConstructor
 class UserRepository {
 
     private static final RowMapper<UserProfile> PROFILE_ROW_MAPPER = (rs, rowNum) -> UserProfile.builder()
@@ -23,10 +25,6 @@ class UserRepository {
             .build();
 
     private final NamedParameterJdbcTemplate jdbc;
-
-    UserRepository(NamedParameterJdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
 
     Optional<UserProfile> findById(UUID userId) {
         var result = jdbc.query("""
