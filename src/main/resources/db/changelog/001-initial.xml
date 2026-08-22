@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="001-initial" author="come-play">
+
+        <!-- USER -->
+        <createTable tableName="app_user">
+            <column name="id" type="uuid"/>
+            <column name="display_name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="app_user" columnNames="id"
+                       constraintName="pk_app_user"/>
+
+        <!-- CLUB -->
+        <createTable tableName="club">
+            <column name="id" type="uuid"/>
+            <column name="name" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_club_owner" references="app_user(id)"/>
+            </column>
+            <column name="closed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="club" columnNames="id"
+                       constraintName="pk_club"/>
+        <createIndex tableName="club" indexName="idx_club_owner">
+            <column name="owner_id"/>
+        </createIndex>
+
+        <!-- CLUB MEMBER -->
+        <createTable tableName="club_member">
+            <column name="club_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_member_club" references="club(id)"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_member_user" references="app_user(id)"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="club_member" columnNames="club_id, user_id"
+                       constraintName="pk_club_member"/>
+        <createIndex tableName="club_member" indexName="idx_club_member_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <!-- INVITATION -->
+        <createTable tableName="invitation">
+            <column name="id" type="uuid"/>
+            <column name="club_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_invitation_club" references="club(id)"/>
+            </column>
+            <column name="name" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_invitation_creator" references="app_user(id)"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="invitation" columnNames="id"
+                       constraintName="pk_invitation"/>
+        <createIndex tableName="invitation" indexName="idx_invitation_club">
+            <column name="club_id"/>
+        </createIndex>
+
+        <!-- TRAINING -->
+        <createTable tableName="training">
+            <column name="id" type="uuid"/>
+            <column name="club_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_training_club" references="club(id)"/>
+            </column>
+            <column name="sport_type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="day_of_week" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="time">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_time" type="time">
+                <constraints nullable="false"/>
+            </column>
+            <column name="max_players" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="training" columnNames="id"
+                       constraintName="pk_training"/>
+        <createIndex tableName="training" indexName="idx_training_club">
+            <column name="club_id"/>
+        </createIndex>
+
+        <!-- TRAINING SLOT -->
+        <createTable tableName="training_slot">
+            <column name="id" type="uuid"/>
+            <column name="training_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_slot_training" references="training(id)"/>
+            </column>
+            <column name="slot_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="training_slot" columnNames="id"
+                       constraintName="pk_training_slot"/>
+        <createIndex tableName="training_slot" indexName="idx_training_slot_training">
+            <column name="training_id"/>
+        </createIndex>
+        <addUniqueConstraint tableName="training_slot" columnNames="training_id, slot_date"
+                             constraintName="uq_slot_training_date"/>
+
+        <!-- TRAINING ENROLLMENT -->
+        <createTable tableName="training_enrollment">
+            <column name="slot_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_enrollment_slot" references="training_slot(id)"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_enrollment_user" references="app_user(id)"/>
+            </column>
+            <column name="enrolled_by" type="uuid">
+                <constraints foreignKeyName="fk_enrollment_by" references="app_user(id)"/>
+            </column>
+            <column name="enrolled_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="training_enrollment" columnNames="slot_id, user_id"
+                       constraintName="pk_training_enrollment"/>
+        <createIndex tableName="training_enrollment" indexName="idx_training_enrollment_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <!-- TRAINING COMMENT -->
+        <createTable tableName="training_comment">
+            <column name="id" type="uuid"/>
+            <column name="slot_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_comment_slot" references="training_slot(id)"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_comment_user" references="app_user(id)"/>
+            </column>
+            <column name="text" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="training_comment" columnNames="id"
+                       constraintName="pk_training_comment"/>
+        <createIndex tableName="training_comment" indexName="idx_training_comment_slot">
+            <column name="slot_id"/>
+        </createIndex>
+
+        <!-- FRIENDSHIP -->
+        <createTable tableName="friendship">
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_friend_user" references="app_user(id)"/>
+            </column>
+            <column name="friend_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_friend_friend" references="app_user(id)"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="friendship" columnNames="user_id, friend_id"
+                       constraintName="pk_friendship"/>
+        <createIndex tableName="friendship" indexName="idx_friendship_friend">
+            <column name="friend_id"/>
+        </createIndex>
+
+        <!-- VISIT HISTORY -->
+        <createTable tableName="visit_history">
+            <column name="id" type="uuid"/>
+            <column name="club_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_history_club" references="club(id)"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_history_user" references="app_user(id)"/>
+            </column>
+            <column name="slot_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sport_type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recorded_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="visit_history" columnNames="id"
+                       constraintName="pk_visit_history"/>
+        <createIndex tableName="visit_history" indexName="idx_visit_history_club">
+            <column name="club_id"/>
+        </createIndex>
+        <createIndex tableName="visit_history" indexName="idx_visit_history_user">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="visit_history" indexName="idx_visit_history_date">
+            <column name="slot_date"/>
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>

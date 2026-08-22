@@ -1,0 +1,247 @@
+package com.github.bogdanovmn.comeplay.training;
+
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+@Component
+class TrainingRepository {
+
+    private static final RowMapper<TrainingBrief> TRAINING_BRIEF_ROW_MAPPER = (rs, rowNum) -> TrainingBrief.builder()
+            .id(UUID.fromString(rs.getString("id")))
+            .sportType(rs.getString("sport_type"))
+            .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
+            .startTime(rs.getTime("start_time").toLocalTime())
+            .endTime(rs.getTime("end_time").toLocalTime())
+            .maxPlayers(rs.getInt("max_players"))
+            .build();
+
+    private static final RowMapper<TrainingSlot> SLOT_ROW_MAPPER = (rs, rowNum) -> TrainingSlot.builder()
+            .id(UUID.fromString(rs.getString("id")))
+            .trainingId(UUID.fromString(rs.getString("training_id")))
+            .slotDate(rs.getDate("slot_date").toLocalDate())
+            .enrolledCount(rs.getInt("enrolled_count"))
+            .maxPlayers(rs.getInt("max_players"))
+            .build();
+
+    private final NamedParameterJdbcTemplate jdbc;
+
+    TrainingRepository(NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    List<TrainingBrief> listByClub(UUID clubId) {
+        return jdbc.query("""
+                SELECT id, sport_type, day_of_week, start_time, end_time, max_players
+                FROM training
+                WHERE club_id = :clubId
+                ORDER BY day_of_week, start_time
+                """,
+                Map.of("clubId", clubId),
+                TRAINING_BRIEF_ROW_MAPPER
+        );
+    }
+
+    Optional<Training> findById(UUID trainingId) {
+        var result = jdbc.query("""
+                SELECT id, club_id, sport_type, day_of_week, start_time, end_time, max_players
+                FROM training
+                WHERE id = :trainingId
+                """,
+                Map.of("trainingId", trainingId),
+                (rs, rowNum) -> Training.builder()
+                        .id(UUID.fromString(rs.getString("id")))
+                        .clubId(UUID.fromString(rs.getString("club_id")))
+                        .sportType(rs.getString("sport_type"))
+                        .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
+                        .startTime(rs.getTime("start_time").toLocalTime())
+                        .endTime(rs.getTime("end_time").toLocalTime())
+                        .maxPlayers(rs.getInt("max_players"))
+                        .build()
+        );
+        return result.stream().findFirst();
+    }
+
+    UUID create(UUID clubId, String sportType, int dayOfWeek, String startTime, String endTime, int maxPlayers) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO training (id, club_id, sport_type, day_of_week, start_time, end_time, max_players)
+                VALUES (:id, :clubId, :sportType, :dayOfWeek, :startTime, :endTime, :maxPlayers)
+                """,
+                Map.of(
+                        "id", id,
+                        "clubId", clubId,
+                        "sportType", sportType,
+                        "dayOfWeek", dayOfWeek,
+                        "startTime", java.sql.Time.valueOf(startTime),
+                        "endTime", java.sql.Time.valueOf(endTime),
+                        "maxPlayers", maxPlayers
+                )
+        );
+        return id;
+    }
+
+    void delete(UUID trainingId) {
+        jdbc.update("""
+                DELETE FROM training WHERE id = :trainingId
+                """,
+                Map.of("trainingId", trainingId)
+        );
+    }
+
+    List<TrainingSlot> listSlots(UUID clubId, LocalDate from, LocalDate to) {
+        return jdbc.query("""
+                SELECT ts.id, ts.training_id, ts.slot_date,
+                    (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
+                    t.max_players
+                FROM training_slot ts
+                JOIN training t ON t.id = ts.training_id
+                WHERE t.club_id = :clubId
+                    AND ts.slot_date >= :from AND ts.slot_date <= :to
+                ORDER BY ts.slot_date, t.start_time
+                """,
+                Map.of("clubId", clubId, "from", from, "to", to),
+                SLOT_ROW_MAPPER
+        );
+    }
+
+    List<TrainingSlot> listSlotsByTraining(UUID trainingId) {
+        return jdbc.query("""
+                SELECT ts.id, ts.training_id, ts.slot_date,
+                    (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
+                    t.max_players
+                FROM training_slot ts
+                JOIN training t ON t.id = ts.training_id
+                WHERE ts.training_id = :trainingId
+                ORDER BY ts.slot_date
+                """,
+                Map.of("trainingId", trainingId),
+                SLOT_ROW_MAPPER
+        );
+    }
+
+    Optional<TrainingSlot> findSlotById(UUID slotId) {
+        var result = jdbc.query("""
+                SELECT ts.id, ts.training_id, ts.slot_date,
+                    (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
+                    t.max_players
+                FROM training_slot ts
+                JOIN training t ON t.id = ts.training_id
+                WHERE ts.id = :slotId
+                """,
+                Map.of("slotId", slotId),
+                SLOT_ROW_MAPPER
+        );
+        return result.stream().findFirst();
+    }
+
+    UUID createSlotIfNotExists(UUID trainingId, LocalDate slotDate) {
+        var existing = jdbc.queryForList("""
+                SELECT id FROM training_slot WHERE training_id = :trainingId AND slot_date = :slotDate
+                """,
+                Map.of("trainingId", trainingId, "slotDate", slotDate)
+        );
+        if (!existing.isEmpty()) {
+            return UUID.fromString(existing.get(0).get("id").toString());
+        }
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO training_slot (id, training_id, slot_date)
+                VALUES (:id, :trainingId, :slotDate)
+                """,
+                Map.of("id", id, "trainingId", trainingId, "slotDate", slotDate)
+        );
+        return id;
+    }
+
+    boolean isEnrolled(UUID slotId, UUID userId) {
+        var result = jdbc.queryForList("""
+                SELECT 1 FROM training_enrollment WHERE slot_id = :slotId AND user_id = :userId
+                """,
+                Map.of("slotId", slotId, "userId", userId)
+        );
+        return !result.isEmpty();
+    }
+
+    void enroll(UUID slotId, UUID userId, UUID enrolledBy) {
+        jdbc.update("""
+                INSERT INTO training_enrollment (slot_id, user_id, enrolled_by, enrolled_at)
+                VALUES (:slotId, :userId, :enrolledBy, :enrolledAt)
+                ON CONFLICT DO NOTHING
+                """,
+                Map.of(
+                        "slotId", slotId,
+                        "userId", userId,
+                        "enrolledBy", enrolledBy,
+                        "enrolledAt", Instant.now()
+                )
+        );
+    }
+
+    void unenroll(UUID slotId, UUID userId) {
+        jdbc.update("""
+                DELETE FROM training_enrollment WHERE slot_id = :slotId AND user_id = :userId
+                """,
+                Map.of("slotId", slotId, "userId", userId)
+        );
+    }
+
+    List<Enrollment> listEnrollments(UUID slotId) {
+        return jdbc.query("""
+                SELECT slot_id, user_id, enrolled_by, enrolled_at
+                FROM training_enrollment
+                WHERE slot_id = :slotId
+                ORDER BY enrolled_at
+                """,
+                Map.of("slotId", slotId),
+                (rs, rowNum) -> Enrollment.builder()
+                        .slotId(UUID.fromString(rs.getString("slot_id")))
+                        .userId(UUID.fromString(rs.getString("user_id")))
+                        .enrolledBy(UUID.fromString(rs.getString("enrolled_by")))
+                        .enrolledAt(rs.getTimestamp("enrolled_at").toInstant())
+                        .build()
+        );
+    }
+
+    List<Comment> listComments(UUID slotId) {
+        return jdbc.query("""
+                SELECT id, slot_id, user_id, text, created_at
+                FROM training_comment
+                WHERE slot_id = :slotId
+                ORDER BY created_at
+                """,
+                Map.of("slotId", slotId),
+                (rs, rowNum) -> Comment.builder()
+                        .id(UUID.fromString(rs.getString("id")))
+                        .slotId(UUID.fromString(rs.getString("slot_id")))
+                        .userId(UUID.fromString(rs.getString("user_id")))
+                        .text(rs.getString("text"))
+                        .createdAt(rs.getTimestamp("created_at").toInstant())
+                        .build()
+        );
+    }
+
+    UUID createComment(UUID slotId, UUID userId, String text) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO training_comment (id, slot_id, user_id, text, created_at)
+                VALUES (:id, :slotId, :userId, :text, :createdAt)
+                """,
+                Map.of(
+                        "id", id,
+                        "slotId", slotId,
+                        "userId", userId,
+                        "text", text,
+                        "createdAt", Instant.now()
+                )
+        );
+        return id;
+    }
+}

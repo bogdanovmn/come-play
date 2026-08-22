@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: come-play
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/come_play
+    username: come_play
+    password: come_play
+    driver-class-name: org.postgresql.Driver
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.github.bogdanovmn.comeplay: DEBUG
