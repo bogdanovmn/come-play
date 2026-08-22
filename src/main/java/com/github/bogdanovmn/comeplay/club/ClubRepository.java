@@ -79,19 +79,18 @@ class ClubRepository {
     }
 
     UUID create(String name, UUID ownerId) {
-        UUID id = UUID.randomUUID();
-        jdbc.update("""
-                INSERT INTO club (id, name, owner_id, closed, created_at)
-                VALUES (:id, :name, :ownerId, false, :createdAt)
+        return jdbc.queryForObject("""
+                INSERT INTO club (name, owner_id, closed, created_at)
+                VALUES (:name, :ownerId, false, :createdAt)
+                RETURNING id
                 """,
                 Map.of(
-                        "id", id,
                         "name", name,
                         "ownerId", ownerId,
                         "createdAt", Instant.now()
-                )
+                ),
+                UUID.class
         );
-        return id;
     }
 
     void update(UUID clubId, String name) {
@@ -169,19 +168,18 @@ class ClubRepository {
     }
 
     UUID createInvitation(UUID clubId, String name, UUID createdBy) {
-        UUID id = UUID.randomUUID();
-        jdbc.update("""
-                INSERT INTO invitation (id, club_id, name, created_by, created_at)
-                VALUES (:id, :clubId, :name, :createdBy, :createdAt)
+        return jdbc.queryForObject("""
+                INSERT INTO invitation (club_id, name, created_by, created_at)
+                VALUES (:clubId, :name, :createdBy, :createdAt)
+                RETURNING id
                 """,
                 Map.of(
-                        "id", id,
                         "clubId", clubId,
                         "name", name,
                         "createdBy", createdBy,
                         "createdAt", Instant.now()
-                )
+                ),
+                UUID.class
         );
-        return id;
     }
 }

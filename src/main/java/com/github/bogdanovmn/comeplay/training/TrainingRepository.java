@@ -70,22 +70,21 @@ class TrainingRepository {
     }
 
     UUID create(UUID clubId, String sportType, int dayOfWeek, String startTime, String endTime, int maxPlayers) {
-        UUID id = UUID.randomUUID();
-        jdbc.update("""
-                INSERT INTO training (id, club_id, sport_type, day_of_week, start_time, end_time, max_players)
-                VALUES (:id, :clubId, :sportType, :dayOfWeek, :startTime, :endTime, :maxPlayers)
+        return jdbc.queryForObject("""
+                INSERT INTO training (club_id, sport_type, day_of_week, start_time, end_time, max_players)
+                VALUES (:clubId, :sportType, :dayOfWeek, :startTime, :endTime, :maxPlayers)
+                RETURNING id
                 """,
             Map.of(
-                "id", id,
                 "clubId", clubId,
                 "sportType", sportType,
                 "dayOfWeek", dayOfWeek,
                 "startTime", java.sql.Time.valueOf(startTime),
                 "endTime", java.sql.Time.valueOf(endTime),
                 "maxPlayers", maxPlayers
-            )
+            ),
+            UUID.class
         );
-        return id;
     }
 
     void delete(UUID trainingId) {
@@ -143,22 +142,16 @@ class TrainingRepository {
     }
 
     UUID createSlotIfNotExists(UUID trainingId, LocalDate slotDate) {
-        var existing = jdbc.queryForList("""
-                SELECT id FROM training_slot WHERE training_id = :trainingId AND slot_date = :slotDate
+        return jdbc.queryForObject("""
+                INSERT INTO training_slot (training_id, slot_date)
+                VALUES (:trainingId, :slotDate)
+                ON CONFLICT (training_id, slot_date)
+                    DO UPDATE SET slot_date = EXCLUDED.slot_date
+                RETURNING id
                 """,
-            Map.of("trainingId", trainingId, "slotDate", slotDate)
+            Map.of("trainingId", trainingId, "slotDate", slotDate),
+            UUID.class
         );
-        if (!existing.isEmpty()) {
-            return UUID.fromString(existing.get(0).get("id").toString());
-        }
-        UUID id = UUID.randomUUID();
-        jdbc.update("""
-                INSERT INTO training_slot (id, training_id, slot_date)
-                VALUES (:id, :trainingId, :slotDate)
-                """,
-            Map.of("id", id, "trainingId", trainingId, "slotDate", slotDate)
-        );
-        return id;
     }
 
     boolean isEnrolled(UUID slotId, UUID userId) {
@@ -229,19 +222,18 @@ class TrainingRepository {
     }
 
     UUID createComment(UUID slotId, UUID userId, String text) {
-        UUID id = UUID.randomUUID();
-        jdbc.update("""
-                INSERT INTO training_comment (id, slot_id, user_id, text, created_at)
-                VALUES (:id, :slotId, :userId, :text, :createdAt)
+        return jdbc.queryForObject("""
+                INSERT INTO training_comment (slot_id, user_id, text, created_at)
+                VALUES (:slotId, :userId, :text, :createdAt)
+                RETURNING id
                 """,
             Map.of(
-                "id", id,
                 "slotId", slotId,
                 "userId", userId,
                 "text", text,
                 "createdAt", Instant.now()
-            )
+            ),
+            UUID.class
         );
-        return id;
     }
 }

@@ -20,12 +20,11 @@ class HistoryRepository {
 
     void recordVisit(UUID clubId, UUID userId, LocalDate slotDate, String sportType) {
         jdbc.update("""
-                INSERT INTO visit_history (id, club_id, user_id, slot_date, sport_type, recorded_at)
-                VALUES (:id, :clubId, :userId, :slotDate, :sportType, :recordedAt)
+                INSERT INTO visit_history (club_id, user_id, slot_date, sport_type, recorded_at)
+                VALUES (:clubId, :userId, :slotDate, :sportType, :recordedAt)
                 ON CONFLICT DO NOTHING
                 """,
                 Map.of(
-                        "id", UUID.randomUUID(),
                         "clubId", clubId,
                         "userId", userId,
                         "slotDate", slotDate,

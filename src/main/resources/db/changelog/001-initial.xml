@@ -20,7 +20,7 @@
 
         <!-- CLUB -->
         <createTable tableName="club">
-            <column name="id" type="uuid"/>
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="name" type="varchar(200)">
                 <constraints nullable="false"/>
             </column>
@@ -59,7 +59,7 @@
 
         <!-- INVITATION -->
         <createTable tableName="invitation">
-            <column name="id" type="uuid"/>
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="club_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_invitation_club" references="club(id)"/>
             </column>
@@ -82,7 +82,7 @@
 
         <!-- TRAINING -->
         <createTable tableName="training">
-            <column name="id" type="uuid"/>
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="club_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_training_club" references="club(id)"/>
             </column>
@@ -111,7 +111,7 @@
 
         <!-- TRAINING SLOT -->
         <createTable tableName="training_slot">
-            <column name="id" type="uuid"/>
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="training_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_slot_training" references="training(id)"/>
             </column>
@@ -152,7 +152,7 @@
 
         <!-- TRAINING COMMENT -->
         <createTable tableName="training_comment">
-            <column name="id" type="uuid"/>
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="slot_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_comment_slot" references="training_slot(id)"/>
             </column>
@@ -191,7 +191,7 @@
 
         <!-- VISIT HISTORY -->
         <createTable tableName="visit_history">
-            <column name="id" type="uuid"/>
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="club_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_history_club" references="club(id)"/>
             </column>
