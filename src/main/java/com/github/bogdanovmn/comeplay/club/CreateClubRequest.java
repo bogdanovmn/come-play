@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Value;
 
 @Value
-public class CreateClubRequest {
+class CreateClubRequest {
     @NotBlank
     @Size(max = 200)
     String name;

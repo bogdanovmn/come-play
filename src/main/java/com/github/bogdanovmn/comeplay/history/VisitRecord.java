@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class VisitRecord {
+class VisitRecord {
     UUID id;
     UUID clubId;
     UUID userId;

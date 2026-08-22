@@ -7,7 +7,7 @@ import java.time.LocalDate;
 
 @Value
 @Builder
-public class VisitByDay {
+class VisitByDay {
     LocalDate date;
     int visitCount;
 }

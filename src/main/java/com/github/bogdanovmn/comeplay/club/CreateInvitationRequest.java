@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Value;
 
 @Value
-public class CreateInvitationRequest {
+class CreateInvitationRequest {
     @NotBlank
     @Size(max = 200)
     String name;

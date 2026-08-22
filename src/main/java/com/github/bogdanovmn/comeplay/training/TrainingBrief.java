@@ -9,7 +9,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class TrainingBrief {
+class TrainingBrief {
     UUID id;
     String sportType;
     DayOfWeek dayOfWeek;

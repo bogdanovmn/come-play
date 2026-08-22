@@ -1,6 +1,7 @@
 package com.github.bogdanovmn.comeplay.history;
 
 import com.github.bogdanovmn.comeplay.club.ClubService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,15 +11,11 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 class HistoryService {
 
     private final HistoryRepository historyRepository;
     private final ClubService clubService;
-
-    HistoryService(HistoryRepository historyRepository, ClubService clubService) {
-        this.historyRepository = historyRepository;
-        this.clubService = clubService;
-    }
 
     @Transactional
     public void recordVisit(UUID clubId, UUID userId, LocalDate slotDate, String sportType) {

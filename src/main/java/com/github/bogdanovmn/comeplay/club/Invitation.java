@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class Invitation {
+class Invitation {
     UUID id;
     UUID clubId;
     String name;

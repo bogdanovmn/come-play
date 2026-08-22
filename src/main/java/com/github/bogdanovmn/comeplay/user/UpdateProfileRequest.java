@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Value;
 
 @Value
-public class UpdateProfileRequest {
+class UpdateProfileRequest {
     @NotBlank
     @Size(max = 100)
     String displayName;

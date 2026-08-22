@@ -5,6 +5,6 @@ import lombok.Value;
 import java.util.UUID;
 
 @Value
-public class EnrollRequest {
+class EnrollRequest {
     UUID userId;
 }

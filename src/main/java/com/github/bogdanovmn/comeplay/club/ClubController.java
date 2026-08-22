@@ -1,6 +1,7 @@
 package com.github.bogdanovmn.comeplay.club;
 
 import com.github.bogdanovmn.comeplay.infrastructure.security.CurrentUserId;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,13 +11,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/clubs")
+@RequiredArgsConstructor
 class ClubController {
 
     private final ClubService clubService;
-
-    ClubController(ClubService clubService) {
-        this.clubService = clubService;
-    }
 
     @GetMapping("/owned")
     List<ClubBrief> listOwned(@CurrentUserId UUID userId) {

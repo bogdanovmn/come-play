@@ -1,6 +1,7 @@
 package com.github.bogdanovmn.comeplay.training;
 
 import com.github.bogdanovmn.comeplay.club.ClubService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,15 +11,11 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 class TrainingService {
 
     private final TrainingRepository trainingRepository;
     private final ClubService clubService;
-
-    TrainingService(TrainingRepository trainingRepository, ClubService clubService) {
-        this.trainingRepository = trainingRepository;
-        this.clubService = clubService;
-    }
 
     @Transactional(readOnly = true)
     public List<TrainingBrief> listByClub(UUID clubId, UUID userId) {

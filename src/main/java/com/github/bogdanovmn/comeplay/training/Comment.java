@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class Comment {
+class Comment {
     UUID id;
     UUID slotId;
     UUID userId;

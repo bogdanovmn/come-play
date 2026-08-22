@@ -5,6 +5,6 @@ import lombok.Value;
 import java.util.UUID;
 
 @Value
-public class AddFriendRequest {
+class AddFriendRequest {
     UUID userId;
 }

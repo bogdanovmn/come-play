@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.club;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.AccessDeniedException;
@@ -11,13 +12,10 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class ClubService {
 
     private final ClubRepository clubRepository;
-
-    ClubService(ClubRepository clubRepository) {
-        this.clubRepository = clubRepository;
-    }
 
     @Transactional(readOnly = true)
     @Cacheable(value = "clubs", key = "#userId")

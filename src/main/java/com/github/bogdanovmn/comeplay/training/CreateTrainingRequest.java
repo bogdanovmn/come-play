@@ -9,7 +9,7 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 
 @Value
-public class CreateTrainingRequest {
+class CreateTrainingRequest {
     @NotBlank
     String sportType;
 

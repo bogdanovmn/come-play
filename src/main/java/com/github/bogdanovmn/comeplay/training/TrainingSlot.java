@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class TrainingSlot {
+class TrainingSlot {
     UUID id;
     UUID trainingId;
     LocalDate slotDate;

@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class VisitByPlayer {
+class VisitByPlayer {
     UUID userId;
     int visitCount;
 }

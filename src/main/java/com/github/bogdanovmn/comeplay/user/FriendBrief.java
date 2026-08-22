@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class FriendBrief {
+class FriendBrief {
     UUID id;
     String displayName;
 }

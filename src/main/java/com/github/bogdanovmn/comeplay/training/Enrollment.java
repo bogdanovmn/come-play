@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class Enrollment {
+class Enrollment {
     UUID slotId;
     UUID userId;
     UUID enrolledBy;
