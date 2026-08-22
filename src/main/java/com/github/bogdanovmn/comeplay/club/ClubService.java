@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class ClubService {
+class ClubService {
 
     private final ClubRepository clubRepository;
 

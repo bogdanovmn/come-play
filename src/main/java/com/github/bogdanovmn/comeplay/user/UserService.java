@@ -1,21 +1,20 @@
 package com.github.bogdanovmn.comeplay.user;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 class UserService {
 
     private final UserRepository userRepository;
-
-    UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     @Transactional
     public UserProfile getOrCreate(UUID userId) {
@@ -26,7 +25,7 @@ class UserService {
     @Cacheable(value = "userProfile", key = "#userId")
     public UserProfile getProfile(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new java.util.NoSuchElementException("User not found: " + userId));
+                .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
     }
 
     @Transactional
