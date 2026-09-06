@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -21,11 +20,10 @@ class UserService {
         return userRepository.getOrCreate(userId);
     }
 
-    @Transactional(readOnly = true)
     @Cacheable(value = "userProfile", key = "#userId")
+    @Transactional
     public UserProfile getProfile(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
+        return userRepository.getOrCreate(userId);
     }
 
     @Transactional

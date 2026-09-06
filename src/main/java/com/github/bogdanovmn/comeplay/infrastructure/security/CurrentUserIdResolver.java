@@ -6,7 +6,7 @@ import java.util.UUID;
 
 @Component("currentUserIdResolver")
 class CurrentUserIdResolver {
-    UUID resolve(Object principal) {
+    public UUID resolve(Object principal) {
         if (principal instanceof JwtBasedUserDetails user) {
             return user.getUserId();
         }

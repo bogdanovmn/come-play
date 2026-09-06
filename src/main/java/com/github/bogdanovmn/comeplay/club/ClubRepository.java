@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,7 +87,7 @@ class ClubRepository {
                 Map.of(
                         "name", name,
                         "ownerId", ownerId,
-                        "createdAt", Instant.now()
+                        "createdAt", Timestamp.from(Instant.now())
                 ),
                 UUID.class
         );
@@ -176,7 +177,7 @@ class ClubRepository {
                         "clubId", clubId,
                         "name", name,
                         "createdBy", createdBy,
-                        "createdAt", Instant.now()
+                        "createdAt", Timestamp.from(Instant.now())
                 ),
                 UUID.class
         );

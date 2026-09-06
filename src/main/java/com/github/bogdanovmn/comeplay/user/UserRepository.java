@@ -37,17 +37,13 @@ class UserRepository {
     }
 
     UserProfile getOrCreate(UUID userId) {
-        return findById(userId).orElseGet(() -> {
-            jdbc.update("""
-                    INSERT INTO app_user (id, display_name) VALUES (:userId, :displayName)
-                    """,
-                    Map.of("userId", userId, "displayName", "Player")
-            );
-            return UserProfile.builder()
-                    .id(userId)
-                    .displayName("Player")
-                    .build();
-        });
+        jdbc.update("""
+                INSERT INTO app_user (id, display_name) VALUES (:userId, :displayName)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                Map.of("userId", userId, "displayName", "Player")
+        );
+        return findById(userId).orElseThrow();
     }
 
     void updateDisplayName(UUID userId, String displayName) {
