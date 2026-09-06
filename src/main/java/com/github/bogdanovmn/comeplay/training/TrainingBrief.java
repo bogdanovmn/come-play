@@ -11,7 +11,6 @@ import java.util.UUID;
 @Builder
 class TrainingBrief {
     UUID id;
-    String sportType;
     DayOfWeek dayOfWeek;
     LocalTime startTime;
     LocalTime endTime;

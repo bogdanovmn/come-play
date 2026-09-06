@@ -10,5 +10,7 @@ import java.util.UUID;
 class ClubBrief {
     UUID id;
     String name;
+    int sportTypeId;
+    String sportTypeName;
     int membersCount;
 }

@@ -43,12 +43,12 @@ class ClubController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     ClubBrief create(@Valid @RequestBody CreateClubRequest request, @CurrentUserId UUID userId) {
-        return clubService.create(request.getName(), userId);
+        return clubService.create(request.getName(), request.getSportTypeId(), userId);
     }
 
     @PutMapping("/{clubId}")
     void update(@PathVariable UUID clubId, @Valid @RequestBody UpdateClubRequest request, @CurrentUserId UUID userId) {
-        clubService.update(clubId, request.getName(), userId);
+        clubService.update(clubId, request.getName(), request.getSportTypeId(), userId);
     }
 
     @PutMapping("/{clubId}/close")

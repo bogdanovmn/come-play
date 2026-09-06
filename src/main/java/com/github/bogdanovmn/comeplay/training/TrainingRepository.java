@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Time;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -18,7 +19,6 @@ class TrainingRepository {
 
     private static final RowMapper<TrainingBrief> TRAINING_BRIEF_ROW_MAPPER = (rs, rowNum) -> TrainingBrief.builder()
         .id(UUID.fromString(rs.getString("id")))
-        .sportType(rs.getString("sport_type"))
         .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
         .startTime(rs.getTime("start_time").toLocalTime())
         .endTime(rs.getTime("end_time").toLocalTime())
@@ -37,7 +37,7 @@ class TrainingRepository {
 
     List<TrainingBrief> listByClub(UUID clubId) {
         return jdbc.query("""
-                SELECT id, sport_type, day_of_week, start_time, end_time, max_players
+                SELECT id, day_of_week, start_time, end_time, max_players
                 FROM training
                 WHERE club_id = :clubId
                 ORDER BY day_of_week, start_time
@@ -49,7 +49,7 @@ class TrainingRepository {
 
     Optional<Training> findById(UUID trainingId) {
         List<Training> result = jdbc.query("""
-                SELECT id, club_id, sport_type, day_of_week, start_time, end_time, max_players
+                SELECT id, club_id, day_of_week, start_time, end_time, max_players
                 FROM training
                 WHERE id = :trainingId
                 """,
@@ -57,7 +57,6 @@ class TrainingRepository {
             (rs, rowNum) -> Training.builder()
                 .id(UUID.fromString(rs.getString("id")))
                 .clubId(UUID.fromString(rs.getString("club_id")))
-                .sportType(rs.getString("sport_type"))
                 .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
                 .startTime(rs.getTime("start_time").toLocalTime())
                 .endTime(rs.getTime("end_time").toLocalTime())
@@ -67,18 +66,17 @@ class TrainingRepository {
         return result.stream().findFirst();
     }
 
-    UUID create(UUID clubId, String sportType, int dayOfWeek, String startTime, String endTime, int maxPlayers) {
+    UUID create(UUID clubId, int dayOfWeek, String startTime, String endTime, int maxPlayers) {
         return jdbc.queryForObject("""
-                INSERT INTO training (club_id, sport_type, day_of_week, start_time, end_time, max_players)
-                VALUES (:clubId, :sportType, :dayOfWeek, :startTime, :endTime, :maxPlayers)
+                INSERT INTO training (club_id, day_of_week, start_time, end_time, max_players)
+                VALUES (:clubId, :dayOfWeek, :startTime, :endTime, :maxPlayers)
                 RETURNING id
                 """,
             Map.of(
                 "clubId", clubId,
-                "sportType", sportType,
                 "dayOfWeek", dayOfWeek,
-                "startTime", java.sql.Time.valueOf(startTime),
-                "endTime", java.sql.Time.valueOf(endTime),
+                "startTime", Time.valueOf(startTime),
+                "endTime", Time.valueOf(endTime),
                 "maxPlayers", maxPlayers
             ),
             UUID.class

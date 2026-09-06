@@ -19,6 +19,8 @@ class ClubRepository {
     private static final RowMapper<Club> CLUB_ROW_MAPPER = (rs, rowNum) -> Club.builder()
             .id(UUID.fromString(rs.getString("id")))
             .name(rs.getString("name"))
+            .sportTypeId(rs.getInt("sport_type_id"))
+            .sportTypeName(rs.getString("sport_type_name"))
             .ownerId(UUID.fromString(rs.getString("owner_id")))
             .closed(rs.getBoolean("closed"))
             .createdAt(rs.getTimestamp("created_at").toInstant())
@@ -27,6 +29,8 @@ class ClubRepository {
     private static final RowMapper<ClubBrief> CLUB_BRIEF_ROW_MAPPER = (rs, rowNum) -> ClubBrief.builder()
             .id(UUID.fromString(rs.getString("id")))
             .name(rs.getString("name"))
+            .sportTypeId(rs.getInt("sport_type_id"))
+            .sportTypeName(rs.getString("sport_type_name"))
             .membersCount(rs.getInt("members_count"))
             .build();
 
@@ -41,9 +45,10 @@ class ClubRepository {
 
     List<ClubBrief> listByOwner(UUID userId) {
         return jdbc.query("""
-                SELECT c.id, c.name,
+                SELECT c.id, c.name, c.sport_type_id, st.name AS sport_type_name,
                     (SELECT COUNT(*) FROM club_member cm WHERE cm.club_id = c.id) AS members_count
                 FROM club c
+                JOIN sport_type st ON st.id = c.sport_type_id
                 WHERE c.owner_id = :userId
                 ORDER BY c.name
                 """,
@@ -54,10 +59,11 @@ class ClubRepository {
 
     List<ClubBrief> listByMember(UUID userId) {
         return jdbc.query("""
-                SELECT c.id, c.name,
+                SELECT c.id, c.name, c.sport_type_id, st.name AS sport_type_name,
                     (SELECT COUNT(*) FROM club_member cm WHERE cm.club_id = c.id) AS members_count
                 FROM club c
                 JOIN club_member cm ON cm.club_id = c.id
+                JOIN sport_type st ON st.id = c.sport_type_id
                 WHERE cm.user_id = :userId AND c.closed = false
                 ORDER BY c.name
                 """,
@@ -68,9 +74,10 @@ class ClubRepository {
 
     Optional<Club> findById(UUID clubId) {
         var result = jdbc.query("""
-                SELECT id, name, owner_id, closed, created_at
-                FROM club
-                WHERE id = :clubId
+                SELECT c.id, c.name, c.sport_type_id, st.name AS sport_type_name, c.owner_id, c.closed, c.created_at
+                FROM club c
+                JOIN sport_type st ON st.id = c.sport_type_id
+                WHERE c.id = :clubId
                 """,
                 Map.of("clubId", clubId),
                 CLUB_ROW_MAPPER
@@ -78,14 +85,15 @@ class ClubRepository {
         return result.stream().findFirst();
     }
 
-    UUID create(String name, UUID ownerId) {
+    UUID create(String name, int sportTypeId, UUID ownerId) {
         return jdbc.queryForObject("""
-                INSERT INTO club (name, owner_id, closed, created_at)
-                VALUES (:name, :ownerId, false, :createdAt)
+                INSERT INTO club (name, sport_type_id, owner_id, closed, created_at)
+                VALUES (:name, :sportTypeId, :ownerId, false, :createdAt)
                 RETURNING id
                 """,
                 Map.of(
                         "name", name,
+                        "sportTypeId", sportTypeId,
                         "ownerId", ownerId,
                         "createdAt", Timestamp.from(Instant.now())
                 ),
@@ -93,11 +101,11 @@ class ClubRepository {
         );
     }
 
-    void update(UUID clubId, String name) {
+    void update(UUID clubId, String name, int sportTypeId) {
         jdbc.update("""
-                UPDATE club SET name = :name WHERE id = :clubId
+                UPDATE club SET name = :name, sport_type_id = :sportTypeId WHERE id = :clubId
                 """,
-                Map.of("clubId", clubId, "name", name)
+                Map.of("clubId", clubId, "name", name, "sportTypeId", sportTypeId)
         );
     }
 

@@ -3,6 +3,9 @@ package com.github.bogdanovmn.comeplay.user;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,13 +20,13 @@ class UserService {
 
     @Transactional
     public UserProfile getOrCreate(UUID userId) {
-        return userRepository.getOrCreate(userId);
+        return userRepository.getOrCreate(userId, jwtUserName());
     }
 
     @Cacheable(value = "userProfile", key = "#userId")
     @Transactional
     public UserProfile getProfile(UUID userId) {
-        return userRepository.getOrCreate(userId);
+        return userRepository.getOrCreate(userId, jwtUserName());
     }
 
     @Transactional
@@ -42,7 +45,7 @@ class UserService {
         if (userId.equals(friendId)) {
             throw new IllegalArgumentException("Cannot add yourself as friend");
         }
-        userRepository.getOrCreate(friendId);
+        userRepository.getOrCreate(friendId, null);
         userRepository.addFriend(userId, friendId);
     }
 
@@ -54,5 +57,13 @@ class UserService {
     @Transactional(readOnly = true)
     public List<UserProfile> search(String term, UUID userId) {
         return userRepository.searchByDisplayName(term, userId);
+    }
+
+    private String jwtUserName() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+        return null;
     }
 }

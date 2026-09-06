@@ -1,6 +1,8 @@
 package com.github.bogdanovmn.comeplay.club;
 
 import com.github.bogdanovmn.comeplay.security.AccessManagement;
+import com.github.bogdanovmn.comeplay.sport.SportType;
+import com.github.bogdanovmn.comeplay.sport.SportTypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -18,6 +20,7 @@ class ClubService {
 
     private final ClubRepository clubRepository;
     private final AccessManagement accessManagement;
+    private final SportTypeService sportTypeService;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "clubs", key = "#userId")
@@ -40,21 +43,25 @@ class ClubService {
 
     @Transactional
     @CacheEvict(value = "clubs", key = "#ownerId")
-    public ClubBrief create(String name, UUID ownerId) {
-        UUID clubId = clubRepository.create(name, ownerId);
+    public ClubBrief create(String name, int sportTypeId, UUID ownerId) {
+        String sportTypeName = sportTypeService.requireById(sportTypeId).getName();
+        UUID clubId = clubRepository.create(name, sportTypeId, ownerId);
         clubRepository.addMember(clubId, ownerId);
         return ClubBrief.builder()
                 .id(clubId)
                 .name(name)
+                .sportTypeId(sportTypeId)
+                .sportTypeName(sportTypeName)
                 .membersCount(1)
                 .build();
     }
 
     @Transactional
     @CacheEvict(value = {"club", "clubs"}, key = "#clubId")
-    public void update(UUID clubId, String name, UUID userId) {
+    public void update(UUID clubId, String name, int sportTypeId, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
-        clubRepository.update(clubId, name);
+        sportTypeService.requireById(sportTypeId);
+        clubRepository.update(clubId, name, sportTypeId);
     }
 
     @Transactional

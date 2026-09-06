@@ -20,11 +20,38 @@
         <addPrimaryKey tableName="app_user" columnNames="id"
                        constraintName="pk_app_user"/>
 
+        <!-- SPORT TYPE -->
+        <createTable tableName="sport_type">
+            <column name="id" type="int" autoIncrement="true"/>
+            <column name="name" type="varchar(50)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="sport_type" columnNames="id"
+                       constraintName="pk_sport_type"/>
+
+        <insert tableName="sport_type">
+            <column name="name" value="Бадминтон"/>
+        </insert>
+        <insert tableName="sport_type">
+            <column name="name" value="Шахматы"/>
+        </insert>
+        <insert tableName="sport_type">
+            <column name="name" value="Волейбол"/>
+        </insert>
+        <insert tableName="sport_type">
+            <column name="name" value="Настольный теннис"/>
+        </insert>
+
         <!-- CLUB -->
         <createTable tableName="club">
             <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="name" type="varchar(200)">
                 <constraints nullable="false"/>
+            </column>
+            <column name="sport_type_id" type="int">
+                <constraints nullable="false" foreignKeyName="fk_club_sport_type" references="sport_type(id)"/>
             </column>
             <column name="owner_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_club_owner" references="app_user(id)"/>
@@ -87,9 +114,6 @@
             <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
             <column name="club_id" type="uuid">
                 <constraints nullable="false" foreignKeyName="fk_training_club" references="club(id)"/>
-            </column>
-            <column name="sport_type" type="varchar(50)">
-                <constraints nullable="false"/>
             </column>
             <column name="day_of_week" type="int">
                 <constraints nullable="false"/>

@@ -11,6 +11,8 @@ import java.util.UUID;
 class Club {
     UUID id;
     String name;
+    int sportTypeId;
+    String sportTypeName;
     UUID ownerId;
     boolean closed;
     Instant createdAt;

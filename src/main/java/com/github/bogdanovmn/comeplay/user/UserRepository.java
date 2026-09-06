@@ -36,12 +36,15 @@ class UserRepository {
         return result.stream().findFirst();
     }
 
-    UserProfile getOrCreate(UUID userId) {
+    UserProfile getOrCreate(UUID userId, String displayName) {
         jdbc.update("""
                 INSERT INTO app_user (id, display_name) VALUES (:userId, :displayName)
                 ON CONFLICT (id) DO NOTHING
                 """,
-                Map.of("userId", userId, "displayName", "Player")
+                Map.of(
+                        "userId", userId,
+                        "displayName", displayName == null ? "Player" : displayName
+                )
         );
         return findById(userId).orElseThrow();
     }

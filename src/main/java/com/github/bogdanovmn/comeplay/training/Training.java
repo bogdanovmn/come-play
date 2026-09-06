@@ -12,7 +12,6 @@ import java.util.UUID;
 class Training {
     UUID id;
     UUID clubId;
-    String sportType;
     DayOfWeek dayOfWeek;
     LocalTime startTime;
     LocalTime endTime;

@@ -2,17 +2,15 @@ package com.github.bogdanovmn.comeplay.training;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+import lombok.Builder;
 import lombok.Value;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 
 @Value
+@Builder
 class CreateTrainingRequest {
-    @NotBlank
-    String sportType;
-
     DayOfWeek dayOfWeek;
 
     LocalTime startTime;

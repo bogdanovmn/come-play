@@ -28,7 +28,6 @@ class TrainingService {
         accessManagement.requireOwner(clubId, userId);
         UUID trainingId = trainingRepository.create(
             clubId,
-            request.getSportType(),
             request.getDayOfWeek().getValue(),
             request.getStartTime().toString(),
             request.getEndTime().toString(),
@@ -36,7 +35,6 @@ class TrainingService {
         );
         return TrainingBrief.builder()
             .id(trainingId)
-            .sportType(request.getSportType())
             .dayOfWeek(request.getDayOfWeek())
             .startTime(request.getStartTime())
             .endTime(request.getEndTime())
