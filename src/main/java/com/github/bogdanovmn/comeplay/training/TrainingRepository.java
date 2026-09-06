@@ -6,8 +6,10 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +31,9 @@ class TrainingRepository {
         .id(UUID.fromString(rs.getString("id")))
         .trainingId(UUID.fromString(rs.getString("training_id")))
         .slotDate(rs.getDate("slot_date").toLocalDate())
+        .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
+        .startTime(rs.getTime("start_time").toLocalTime())
+        .endTime(rs.getTime("end_time").toLocalTime())
         .enrolledCount(rs.getInt("enrolled_count"))
         .maxPlayers(rs.getInt("max_players"))
         .build();
@@ -66,7 +71,7 @@ class TrainingRepository {
         return result.stream().findFirst();
     }
 
-    UUID create(UUID clubId, int dayOfWeek, String startTime, String endTime, int maxPlayers) {
+    UUID create(UUID clubId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers) {
         return jdbc.queryForObject("""
                 INSERT INTO training (club_id, day_of_week, start_time, end_time, max_players)
                 VALUES (:clubId, :dayOfWeek, :startTime, :endTime, :maxPlayers)
@@ -85,9 +90,46 @@ class TrainingRepository {
 
     void delete(UUID trainingId) {
         jdbc.update("""
-            DELETE FROM training WHERE id = :trainingId
-        """,
+                DELETE FROM training_comment
+                WHERE slot_id IN (SELECT id FROM training_slot WHERE training_id = :trainingId)
+                """,
             Map.of("trainingId", trainingId)
+        );
+        jdbc.update("""
+                DELETE FROM training_enrollment
+                WHERE slot_id IN (SELECT id FROM training_slot WHERE training_id = :trainingId)
+                """,
+            Map.of("trainingId", trainingId)
+        );
+        jdbc.update("""
+                DELETE FROM training_slot
+                WHERE training_id = :trainingId
+                """,
+            Map.of("trainingId", trainingId)
+        );
+        jdbc.update("""
+                DELETE FROM training WHERE id = :trainingId
+                """,
+            Map.of("trainingId", trainingId)
+        );
+    }
+
+    void update(UUID trainingId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers) {
+        jdbc.update("""
+                UPDATE training
+                SET day_of_week = :dayOfWeek,
+                    start_time = :startTime,
+                    end_time = :endTime,
+                    max_players = :maxPlayers
+                WHERE id = :trainingId
+                """,
+            Map.of(
+                "trainingId", trainingId,
+                "dayOfWeek", dayOfWeek,
+                "startTime", Time.valueOf(startTime),
+                "endTime", Time.valueOf(endTime),
+                "maxPlayers", maxPlayers
+            )
         );
     }
 
@@ -95,7 +137,7 @@ class TrainingRepository {
         return jdbc.query("""
                 SELECT ts.id, ts.training_id, ts.slot_date,
                     (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    t.max_players
+                    t.day_of_week, t.start_time, t.end_time, t.max_players
                 FROM training_slot ts
                 JOIN training t ON t.id = ts.training_id
                 WHERE t.club_id = :clubId
@@ -111,7 +153,7 @@ class TrainingRepository {
         return jdbc.query("""
                 SELECT ts.id, ts.training_id, ts.slot_date,
                     (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    t.max_players
+                    t.day_of_week, t.start_time, t.end_time, t.max_players
                 FROM training_slot ts
                 JOIN training t ON t.id = ts.training_id
                 WHERE ts.training_id = :trainingId
@@ -126,7 +168,7 @@ class TrainingRepository {
         var result = jdbc.query("""
                 SELECT ts.id, ts.training_id, ts.slot_date,
                     (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    t.max_players
+                    t.day_of_week, t.start_time, t.end_time, t.max_players
                 FROM training_slot ts
                 JOIN training t ON t.id = ts.training_id
                 WHERE ts.id = :slotId
@@ -150,6 +192,24 @@ class TrainingRepository {
         );
     }
 
+    void ensureSlots(UUID clubId, LocalDate from, LocalDate to) {
+        for (var template : jdbc.queryForList("""
+                SELECT id, day_of_week
+                FROM training
+                WHERE club_id = :clubId
+                """,
+            Map.of("clubId", clubId)
+        )) {
+            UUID trainingId = (UUID) template.get("id");
+            int dayOfWeek = ((Number) template.get("day_of_week")).intValue();
+            LocalDate first = from;
+            first = first.plusDays((dayOfWeek + 7 - first.getDayOfWeek().getValue()) % 7);
+            for (LocalDate date = first; !date.isAfter(to); date = date.plusWeeks(1)) {
+                createSlotIfNotExists(trainingId, date);
+            }
+        }
+    }
+
     boolean isEnrolled(UUID slotId, UUID userId) {
         var result = jdbc.queryForList("""
                 SELECT 1 FROM training_enrollment WHERE slot_id = :slotId AND user_id = :userId
@@ -169,7 +229,7 @@ class TrainingRepository {
                 "slotId", slotId,
                 "userId", userId,
                 "enrolledBy", enrolledBy,
-                "enrolledAt", Instant.now()
+                "enrolledAt", Timestamp.from(Instant.now())
             )
         );
     }
@@ -227,7 +287,7 @@ class TrainingRepository {
                 "slotId", slotId,
                 "userId", userId,
                 "text", text,
-                "createdAt", Instant.now()
+                "createdAt", Timestamp.from(Instant.now())
             ),
             UUID.class
         );

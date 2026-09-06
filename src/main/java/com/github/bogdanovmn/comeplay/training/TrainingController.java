@@ -35,6 +35,16 @@ class TrainingController {
         return trainingService.create(clubId, request, userId);
     }
 
+    @PutMapping("/{trainingId}")
+    TrainingBrief update(
+            @PathVariable UUID clubId,
+            @PathVariable UUID trainingId,
+            @Valid @RequestBody CreateTrainingRequest request,
+            @CurrentUserId UUID userId
+    ) {
+        return trainingService.update(trainingId, request, userId);
+    }
+
     @DeleteMapping("/{trainingId}")
     void delete(@PathVariable UUID clubId, @PathVariable UUID trainingId, @CurrentUserId UUID userId) {
         trainingService.delete(trainingId, userId);
@@ -57,42 +67,5 @@ class TrainingController {
             @CurrentUserId UUID userId
     ) {
         return trainingService.listSlots(clubId, from, to, userId);
-    }
-
-    @PostMapping("/slots/{slotId}/enroll")
-    void enroll(
-            @PathVariable UUID clubId,
-            @PathVariable UUID slotId,
-            @RequestBody(required = false) EnrollRequest request,
-            @CurrentUserId UUID userId
-    ) {
-        UUID targetUserId = (request != null && request.getUserId() != null) ? request.getUserId() : userId;
-        trainingService.enroll(slotId, targetUserId, userId);
-    }
-
-    @DeleteMapping("/slots/{slotId}/enroll")
-    void unenroll(@PathVariable UUID clubId, @PathVariable UUID slotId, @CurrentUserId UUID userId) {
-        trainingService.unenroll(slotId, userId);
-    }
-
-    @GetMapping("/slots/{slotId}/enrollments")
-    List<Enrollment> listEnrollments(@PathVariable UUID clubId, @PathVariable UUID slotId, @CurrentUserId UUID userId) {
-        return trainingService.listEnrollments(slotId, userId);
-    }
-
-    @GetMapping("/slots/{slotId}/comments")
-    List<Comment> listComments(@PathVariable UUID clubId, @PathVariable UUID slotId, @CurrentUserId UUID userId) {
-        return trainingService.listComments(slotId, userId);
-    }
-
-    @PostMapping("/slots/{slotId}/comments")
-    @ResponseStatus(HttpStatus.CREATED)
-    Comment createComment(
-            @PathVariable UUID clubId,
-            @PathVariable UUID slotId,
-            @Valid @RequestBody CreateCommentRequest request,
-            @CurrentUserId UUID userId
-    ) {
-        return trainingService.createComment(slotId, request.getText(), userId);
     }
 }

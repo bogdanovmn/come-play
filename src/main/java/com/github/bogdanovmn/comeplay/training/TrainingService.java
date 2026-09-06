@@ -29,8 +29,29 @@ class TrainingService {
         UUID trainingId = trainingRepository.create(
             clubId,
             request.getDayOfWeek().getValue(),
-            request.getStartTime().toString(),
-            request.getEndTime().toString(),
+            request.getStartTime(),
+            request.getEndTime(),
+            request.getMaxPlayers()
+        );
+        return TrainingBrief.builder()
+            .id(trainingId)
+            .dayOfWeek(request.getDayOfWeek())
+            .startTime(request.getStartTime())
+            .endTime(request.getEndTime())
+            .maxPlayers(request.getMaxPlayers())
+            .build();
+    }
+
+    @Transactional
+    public TrainingBrief update(UUID trainingId, CreateTrainingRequest request, UUID userId) {
+        Training training = trainingRepository.findById(trainingId)
+            .orElseThrow(() -> new NoSuchElementException("Training not found: " + trainingId));
+        accessManagement.requireOwner(training.getClubId(), userId);
+        trainingRepository.update(
+            trainingId,
+            request.getDayOfWeek().getValue(),
+            request.getStartTime(),
+            request.getEndTime(),
             request.getMaxPlayers()
         );
         return TrainingBrief.builder()
@@ -50,9 +71,10 @@ class TrainingService {
         trainingRepository.delete(trainingId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<TrainingSlot> listSlots(UUID clubId, LocalDate from, LocalDate to, UUID userId) {
         accessManagement.requireMember(clubId, userId);
+        trainingRepository.ensureSlots(clubId, from, to);
         return trainingRepository.listSlots(clubId, from, to);
     }
 
