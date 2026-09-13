@@ -11,6 +11,8 @@ import java.util.UUID;
 class Enrollment {
     UUID slotId;
     UUID userId;
+    UUID friendId;
+    String name;
     UUID enrolledBy;
     Instant enrolledAt;
 }

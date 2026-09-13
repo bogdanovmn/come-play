@@ -6,247 +6,128 @@
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="001-initial" author="come-play">
+        <!-- EXTENSIONS -->
         <sql>
             CREATE EXTENSION IF NOT EXISTS "pgcrypto";
         </sql>
-        <!-- USER -->
-        <createTable tableName="app_user">
-            <column name="id" type="uuid"/>
-            <column name="display_name" type="varchar(100)">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
 
-        <addPrimaryKey tableName="app_user" columnNames="id"
-                       constraintName="pk_app_user"/>
+        <!-- USER / SPORT TYPE -->
+        <sql>
+            CREATE TABLE app_user (
+                id uuid PRIMARY KEY,
+                display_name varchar(100) NOT NULL
+            );
 
-        <!-- SPORT TYPE -->
-        <createTable tableName="sport_type">
-            <column name="id" type="int" autoIncrement="true"/>
-            <column name="name" type="varchar(50)">
-                <constraints nullable="false" unique="true"/>
-            </column>
-        </createTable>
+            CREATE TABLE sport_type (
+                id serial PRIMARY KEY,
+                name varchar(50) NOT NULL UNIQUE
+            );
 
-        <addPrimaryKey tableName="sport_type" columnNames="id"
-                       constraintName="pk_sport_type"/>
+            INSERT INTO sport_type (name) VALUES
+                ('Бадминтон'),
+                ('Шахматы'),
+                ('Волейбол'),
+                ('Настольный теннис');
+        </sql>
 
-        <insert tableName="sport_type">
-            <column name="name" value="Бадминтон"/>
-        </insert>
-        <insert tableName="sport_type">
-            <column name="name" value="Шахматы"/>
-        </insert>
-        <insert tableName="sport_type">
-            <column name="name" value="Волейбол"/>
-        </insert>
-        <insert tableName="sport_type">
-            <column name="name" value="Настольный теннис"/>
-        </insert>
+        <!-- CLUB / MEMBER / INVITATION -->
+        <sql>
+            CREATE TABLE club (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                name varchar(200) NOT NULL,
+                sport_type_id int NOT NULL REFERENCES sport_type(id),
+                owner_id uuid NOT NULL REFERENCES app_user(id),
+                closed boolean NOT NULL DEFAULT false,
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+            CREATE INDEX idx_club_owner ON club(owner_id);
 
-        <!-- CLUB -->
-        <createTable tableName="club">
-            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
-            <column name="name" type="varchar(200)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="sport_type_id" type="int">
-                <constraints nullable="false" foreignKeyName="fk_club_sport_type" references="sport_type(id)"/>
-            </column>
-            <column name="owner_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_club_owner" references="app_user(id)"/>
-            </column>
-            <column name="closed" type="boolean" defaultValueBoolean="false">
-                <constraints nullable="false"/>
-            </column>
-            <column name="created_at" type="timestamp">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+            CREATE TABLE club_member (
+                club_id uuid NOT NULL REFERENCES club(id),
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                PRIMARY KEY (club_id, user_id)
+            );
+            CREATE INDEX idx_club_member_user ON club_member(user_id);
 
-        <addPrimaryKey tableName="club" columnNames="id"
-                       constraintName="pk_club"/>
-        <createIndex tableName="club" indexName="idx_club_owner">
-            <column name="owner_id"/>
-        </createIndex>
+            CREATE TABLE invitation (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                club_id uuid NOT NULL REFERENCES club(id),
+                name varchar(200) NOT NULL,
+                created_by uuid NOT NULL REFERENCES app_user(id),
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+            CREATE INDEX idx_invitation_club ON invitation(club_id);
+        </sql>
 
-        <!-- CLUB MEMBER -->
-        <createTable tableName="club_member">
-            <column name="club_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_member_club" references="club(id)"/>
-            </column>
-            <column name="user_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_member_user" references="app_user(id)"/>
-            </column>
-        </createTable>
+        <!-- TRAINING / SLOT -->
+        <sql>
+            CREATE TABLE training (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                club_id uuid NOT NULL REFERENCES club(id),
+                day_of_week int NOT NULL,
+                start_time time NOT NULL,
+                end_time time NOT NULL,
+                max_players int NOT NULL
+            );
+            CREATE INDEX idx_training_club ON training(club_id);
 
-        <addPrimaryKey tableName="club_member" columnNames="club_id, user_id"
-                       constraintName="pk_club_member"/>
-        <createIndex tableName="club_member" indexName="idx_club_member_user">
-            <column name="user_id"/>
-        </createIndex>
+            CREATE TABLE training_slot (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                training_id uuid NOT NULL REFERENCES training(id),
+                slot_date date NOT NULL,
+                CONSTRAINT uq_slot_training_date UNIQUE (training_id, slot_date)
+            );
+            CREATE INDEX idx_training_slot_training ON training_slot(training_id);
+        </sql>
 
-        <!-- INVITATION -->
-        <createTable tableName="invitation">
-            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
-            <column name="club_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_invitation_club" references="club(id)"/>
-            </column>
-            <column name="name" type="varchar(200)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="created_by" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_invitation_creator" references="app_user(id)"/>
-            </column>
-            <column name="created_at" type="timestamp">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+        <!-- FRIEND / ENROLLMENT / COMMENT -->
+        <sql>
+            CREATE TABLE friend (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                name varchar(100) NOT NULL,
+                created_at timestamp NOT NULL DEFAULT now(),
+                CONSTRAINT uq_friend_user_name UNIQUE (user_id, name)
+            );
+            CREATE INDEX idx_friend_user ON friend(user_id);
 
-        <addPrimaryKey tableName="invitation" columnNames="id"
-                       constraintName="pk_invitation"/>
-        <createIndex tableName="invitation" indexName="idx_invitation_club">
-            <column name="club_id"/>
-        </createIndex>
+            CREATE TABLE training_enrollment (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                slot_id uuid NOT NULL REFERENCES training_slot(id),
+                user_id uuid REFERENCES app_user(id),
+                friend_id uuid REFERENCES friend(id) ON DELETE CASCADE,
+                enrolled_by uuid REFERENCES app_user(id),
+                enrolled_at timestamp NOT NULL DEFAULT now(),
+                CONSTRAINT uq_training_enrollment_slot_user UNIQUE (slot_id, user_id),
+                CONSTRAINT uq_training_enrollment_slot_friend UNIQUE (slot_id, friend_id),
+                CONSTRAINT chk_training_enrollment_target CHECK (num_nonnulls(user_id, friend_id) = 1)
+            );
+            CREATE INDEX idx_training_enrollment_user ON training_enrollment(user_id);
 
-        <!-- TRAINING -->
-        <createTable tableName="training">
-            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
-            <column name="club_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_training_club" references="club(id)"/>
-            </column>
-            <column name="day_of_week" type="int">
-                <constraints nullable="false"/>
-            </column>
-            <column name="start_time" type="time">
-                <constraints nullable="false"/>
-            </column>
-            <column name="end_time" type="time">
-                <constraints nullable="false"/>
-            </column>
-            <column name="max_players" type="int">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-
-        <addPrimaryKey tableName="training" columnNames="id"
-                       constraintName="pk_training"/>
-        <createIndex tableName="training" indexName="idx_training_club">
-            <column name="club_id"/>
-        </createIndex>
-
-        <!-- TRAINING SLOT -->
-        <createTable tableName="training_slot">
-            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
-            <column name="training_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_slot_training" references="training(id)"/>
-            </column>
-            <column name="slot_date" type="date">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-
-        <addPrimaryKey tableName="training_slot" columnNames="id"
-                       constraintName="pk_training_slot"/>
-        <createIndex tableName="training_slot" indexName="idx_training_slot_training">
-            <column name="training_id"/>
-        </createIndex>
-        <addUniqueConstraint tableName="training_slot" columnNames="training_id, slot_date"
-                             constraintName="uq_slot_training_date"/>
-
-        <!-- TRAINING ENROLLMENT -->
-        <createTable tableName="training_enrollment">
-            <column name="slot_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_enrollment_slot" references="training_slot(id)"/>
-            </column>
-            <column name="user_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_enrollment_user" references="app_user(id)"/>
-            </column>
-            <column name="enrolled_by" type="uuid">
-                <constraints foreignKeyName="fk_enrollment_by" references="app_user(id)"/>
-            </column>
-            <column name="enrolled_at" type="timestamp">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-
-        <addPrimaryKey tableName="training_enrollment" columnNames="slot_id, user_id"
-                       constraintName="pk_training_enrollment"/>
-        <createIndex tableName="training_enrollment" indexName="idx_training_enrollment_user">
-            <column name="user_id"/>
-        </createIndex>
-
-        <!-- TRAINING COMMENT -->
-        <createTable tableName="training_comment">
-            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
-            <column name="slot_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_comment_slot" references="training_slot(id)"/>
-            </column>
-            <column name="user_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_comment_user" references="app_user(id)"/>
-            </column>
-            <column name="text" type="text">
-                <constraints nullable="false"/>
-            </column>
-            <column name="created_at" type="timestamp">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-
-        <addPrimaryKey tableName="training_comment" columnNames="id"
-                       constraintName="pk_training_comment"/>
-        <createIndex tableName="training_comment" indexName="idx_training_comment_slot">
-            <column name="slot_id"/>
-        </createIndex>
-
-        <!-- FRIENDSHIP -->
-        <createTable tableName="friendship">
-            <column name="user_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_friend_user" references="app_user(id)"/>
-            </column>
-            <column name="friend_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_friend_friend" references="app_user(id)"/>
-            </column>
-        </createTable>
-
-        <addPrimaryKey tableName="friendship" columnNames="user_id, friend_id"
-                       constraintName="pk_friendship"/>
-        <createIndex tableName="friendship" indexName="idx_friendship_friend">
-            <column name="friend_id"/>
-        </createIndex>
+            CREATE TABLE training_comment (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                slot_id uuid NOT NULL REFERENCES training_slot(id),
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                text text NOT NULL,
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+            CREATE INDEX idx_training_comment_slot ON training_comment(slot_id);
+        </sql>
 
         <!-- VISIT HISTORY -->
-        <createTable tableName="visit_history">
-            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()"/>
-            <column name="club_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_history_club" references="club(id)"/>
-            </column>
-            <column name="user_id" type="uuid">
-                <constraints nullable="false" foreignKeyName="fk_history_user" references="app_user(id)"/>
-            </column>
-            <column name="slot_date" type="date">
-                <constraints nullable="false"/>
-            </column>
-            <column name="sport_type" type="varchar(50)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="recorded_at" type="timestamp">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-
-        <addPrimaryKey tableName="visit_history" columnNames="id"
-                       constraintName="pk_visit_history"/>
-        <createIndex tableName="visit_history" indexName="idx_visit_history_club">
-            <column name="club_id"/>
-        </createIndex>
-        <createIndex tableName="visit_history" indexName="idx_visit_history_user">
-            <column name="user_id"/>
-        </createIndex>
-        <createIndex tableName="visit_history" indexName="idx_visit_history_date">
-            <column name="slot_date"/>
-        </createIndex>
-
+        <sql>
+            CREATE TABLE visit_history (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                club_id uuid NOT NULL REFERENCES club(id),
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                slot_date date NOT NULL,
+                sport_type varchar(50) NOT NULL,
+                recorded_at timestamp NOT NULL DEFAULT now()
+            );
+            CREATE INDEX idx_visit_history_club ON visit_history(club_id);
+            CREATE INDEX idx_visit_history_user ON visit_history(user_id);
+            CREATE INDEX idx_visit_history_date ON visit_history(slot_date);
+        </sql>
     </changeSet>
 
 </databaseChangeLog>

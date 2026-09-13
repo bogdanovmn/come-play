@@ -6,8 +6,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -219,40 +217,48 @@ class TrainingRepository {
         return !result.isEmpty();
     }
 
-    void enroll(UUID slotId, UUID userId, UUID enrolledBy) {
+    void enroll(UUID slotId, UUID userId, UUID friendId, UUID enrolledBy) {
         jdbc.update("""
-                INSERT INTO training_enrollment (slot_id, user_id, enrolled_by, enrolled_at)
-                VALUES (:slotId, :userId, :enrolledBy, :enrolledAt)
+                INSERT INTO training_enrollment (slot_id, user_id, friend_id, enrolled_by)
+                VALUES (:slotId, :userId, :friendId, :enrolledBy)
                 ON CONFLICT DO NOTHING
                 """,
             Map.of(
                 "slotId", slotId,
                 "userId", userId,
-                "enrolledBy", enrolledBy,
-                "enrolledAt", Timestamp.from(Instant.now())
+                "friendId", friendId,
+                "enrolledBy", enrolledBy
             )
         );
     }
 
-    void unenroll(UUID slotId, UUID userId) {
-        jdbc.update("""
-                DELETE FROM training_enrollment WHERE slot_id = :slotId AND user_id = :userId
-                """,
-            Map.of("slotId", slotId, "userId", userId)
+    void unenroll(UUID slotId, UUID userId, UUID friendId) {
+        String sql = friendId != null
+            ? "DELETE FROM training_enrollment WHERE slot_id = :slotId AND friend_id = :friendId"
+            : "DELETE FROM training_enrollment WHERE slot_id = :slotId AND user_id = :userId";
+        jdbc.update(
+            sql,
+            Map.of("slotId", slotId, "userId", userId, "friendId", friendId)
         );
     }
 
     List<Enrollment> listEnrollments(UUID slotId) {
         return jdbc.query("""
-                SELECT slot_id, user_id, enrolled_by, enrolled_at
-                FROM training_enrollment
-                WHERE slot_id = :slotId
-                ORDER BY enrolled_at
+                SELECT e.slot_id, e.user_id, e.friend_id,
+                    COALESCE(u.display_name, f.name) AS name,
+                    e.enrolled_by, e.enrolled_at
+                FROM training_enrollment e
+                LEFT JOIN app_user u ON u.id = e.user_id
+                LEFT JOIN friend f ON f.id = e.friend_id
+                WHERE e.slot_id = :slotId
+                ORDER BY e.enrolled_at
                 """,
             Map.of("slotId", slotId),
             (rs, rowNum) -> Enrollment.builder()
                 .slotId(UUID.fromString(rs.getString("slot_id")))
-                .userId(UUID.fromString(rs.getString("user_id")))
+                .userId(rs.getString("user_id") != null ? UUID.fromString(rs.getString("user_id")) : null)
+                .friendId(rs.getString("friend_id") != null ? UUID.fromString(rs.getString("friend_id")) : null)
+                .name(rs.getString("name"))
                 .enrolledBy(UUID.fromString(rs.getString("enrolled_by")))
                 .enrolledAt(rs.getTimestamp("enrolled_at").toInstant())
                 .build()
@@ -279,15 +285,14 @@ class TrainingRepository {
 
     UUID createComment(UUID slotId, UUID userId, String text) {
         return jdbc.queryForObject("""
-                INSERT INTO training_comment (slot_id, user_id, text, created_at)
-                VALUES (:slotId, :userId, :text, :createdAt)
+                INSERT INTO training_comment (slot_id, user_id, text)
+                VALUES (:slotId, :userId, :text)
                 RETURNING id
                 """,
             Map.of(
                 "slotId", slotId,
                 "userId", userId,
-                "text", text,
-                "createdAt", Timestamp.from(Instant.now())
+                "text", text
             ),
             UUID.class
         );

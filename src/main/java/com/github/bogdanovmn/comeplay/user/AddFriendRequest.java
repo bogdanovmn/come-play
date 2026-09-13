@@ -1,10 +1,12 @@
 package com.github.bogdanovmn.comeplay.user;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Value;
-
-import java.util.UUID;
 
 @Value
 class AddFriendRequest {
-    UUID userId;
+    @NotBlank
+    @Size(max = 100)
+    String name;
 }

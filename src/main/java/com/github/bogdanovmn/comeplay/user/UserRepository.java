@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
-class UserRepository {
+public class UserRepository {
 
     private static final RowMapper<UserProfile> PROFILE_ROW_MAPPER = (rs, rowNum) -> UserProfile.builder()
             .id(UUID.fromString(rs.getString("id")))
@@ -21,7 +21,7 @@ class UserRepository {
 
     private static final RowMapper<FriendBrief> FRIEND_BRIEF_ROW_MAPPER = (rs, rowNum) -> FriendBrief.builder()
             .id(UUID.fromString(rs.getString("id")))
-            .displayName(rs.getString("display_name"))
+            .name(rs.getString("name"))
             .build();
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -59,42 +59,52 @@ class UserRepository {
 
     List<FriendBrief> listFriends(UUID userId) {
         return jdbc.query("""
-                SELECT u.id, u.display_name
-                FROM friendship f
-                JOIN app_user u ON u.id = f.friend_id
-                WHERE f.user_id = :userId
-                ORDER BY u.display_name
+                SELECT id, name
+                FROM friend
+                WHERE user_id = :userId
+                ORDER BY name
                 """,
                 Map.of("userId", userId),
                 FRIEND_BRIEF_ROW_MAPPER
         );
     }
 
-    void addFriend(UUID userId, UUID friendId) {
+    FriendBrief createFriend(UUID userId, String name) {
+        var existing = jdbc.query("""
+                SELECT id, name FROM friend WHERE user_id = :userId AND name = :name
+                """,
+                Map.of("userId", userId, "name", name),
+                FRIEND_BRIEF_ROW_MAPPER
+        );
+        if (!existing.isEmpty()) {
+            throw new IllegalArgumentException("Friend with name already exists: " + name);
+        }
+        UUID id = jdbc.queryForObject("""
+                INSERT INTO friend (user_id, name) VALUES (:userId, :name)
+                RETURNING id
+                """,
+                Map.of("userId", userId, "name", name),
+                UUID.class
+        );
+        return FriendBrief.builder().id(id).name(name).build();
+    }
+
+    void deleteFriend(UUID userId, UUID friendId) {
         jdbc.update("""
-                INSERT INTO friendship (user_id, friend_id) VALUES (:userId, :friendId)
-                ON CONFLICT DO NOTHING
+                DELETE FROM friend WHERE id = :friendId AND user_id = :userId
                 """,
                 Map.of("userId", userId, "friendId", friendId)
         );
     }
 
-    void removeFriend(UUID userId, UUID friendId) {
-        jdbc.update("""
-                DELETE FROM friendship WHERE user_id = :userId AND friend_id = :friendId
+    public Optional<FriendBrief> findFriend(UUID friendId, UUID userId) {
+        var result = jdbc.query("""
+                SELECT id, name FROM friend
+                WHERE id = :friendId AND user_id = :userId
                 """,
-                Map.of("userId", userId, "friendId", friendId)
+                Map.of("friendId", friendId, "userId", userId),
+                FRIEND_BRIEF_ROW_MAPPER
         );
-    }
-
-    List<UserProfile> searchByDisplayName(String term, UUID excludeUserId) {
-        return jdbc.query("""
-                SELECT id, display_name FROM app_user
-                WHERE LOWER(display_name) LIKE LOWER(:term) AND id != :excludeUserId
-                LIMIT 20
-                """,
-                Map.of("term", "%" + term + "%", "excludeUserId", excludeUserId),
-                PROFILE_ROW_MAPPER
-        );
+        return result.stream().findFirst();
     }
 }

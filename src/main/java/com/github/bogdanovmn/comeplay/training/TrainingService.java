@@ -1,6 +1,7 @@
 package com.github.bogdanovmn.comeplay.training;
 
 import com.github.bogdanovmn.comeplay.security.AccessManagement;
+import com.github.bogdanovmn.comeplay.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.util.UUID;
 class TrainingService {
 
     private final TrainingRepository trainingRepository;
+    private final UserRepository userRepository;
     private final AccessManagement accessManagement;
 
     @Transactional(readOnly = true)
@@ -88,24 +90,33 @@ class TrainingService {
 
     @Transactional
     public void enroll(UUID slotId, UUID userId, UUID enrolledBy) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
-            .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
-
-        if (slot.getEnrolledCount() >= slot.getMaxPlayers()) {
-            throw new IllegalArgumentException("Slot is full: " + slotId);
-        }
-
-        Training training = trainingRepository.findById(slot.getTrainingId())
-            .orElseThrow(() -> new NoSuchElementException("Training not found"));
+        TrainingSlot slot = requireSlotAvailable(slotId);
+        Training training = requireTraining(slot.getTrainingId());
         accessManagement.requireMember(training.getClubId(), userId);
         accessManagement.requireMember(training.getClubId(), enrolledBy);
 
-        trainingRepository.enroll(slotId, userId, enrolledBy);
+        trainingRepository.enroll(slotId, userId, null, enrolledBy);
+    }
+
+    @Transactional
+    public void enrollFriend(UUID slotId, UUID friendId, UUID enrolledBy) {
+        TrainingSlot slot = requireSlotAvailable(slotId);
+        requireFriend(friendId, enrolledBy);
+        Training training = requireTraining(slot.getTrainingId());
+        accessManagement.requireMember(training.getClubId(), enrolledBy);
+
+        trainingRepository.enroll(slotId, null, friendId, enrolledBy);
     }
 
     @Transactional
     public void unenroll(UUID slotId, UUID userId) {
-        trainingRepository.unenroll(slotId, userId);
+        trainingRepository.unenroll(slotId, userId, null);
+    }
+
+    @Transactional
+    public void unenrollFriend(UUID slotId, UUID friendId, UUID userId) {
+        requireFriend(friendId, userId);
+        trainingRepository.unenroll(slotId, null, friendId);
     }
 
     @Transactional(readOnly = true)
@@ -142,5 +153,28 @@ class TrainingService {
             .userId(userId)
             .text(text)
         .build();
+    }
+
+    private TrainingSlot requireSlotAvailable(UUID slotId) {
+        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+            .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
+        if (slot.getEnrolledCount() >= slot.getMaxPlayers()) {
+            throw new IllegalArgumentException("Slot is full: " + slotId);
+        }
+        return slot;
+    }
+
+    private Training requireTraining(UUID trainingId) {
+        return trainingRepository.findById(trainingId)
+            .orElseThrow(() -> new NoSuchElementException("Training not found: " + trainingId));
+    }
+
+    private void requireFriend(UUID friendId, UUID userId) {
+        if (friendId == null) {
+            throw new IllegalArgumentException("friendId is required");
+        }
+        userRepository.findFriend(friendId, userId).orElseThrow(
+            () -> new IllegalArgumentException("Friend not found: " + friendId)
+        );
     }
 }

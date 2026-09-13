@@ -5,8 +5,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,15 +85,14 @@ class ClubRepository {
 
     UUID create(String name, int sportTypeId, UUID ownerId) {
         return jdbc.queryForObject("""
-                INSERT INTO club (name, sport_type_id, owner_id, closed, created_at)
-                VALUES (:name, :sportTypeId, :ownerId, false, :createdAt)
+                INSERT INTO club (name, sport_type_id, owner_id, closed)
+                VALUES (:name, :sportTypeId, :ownerId, false)
                 RETURNING id
                 """,
                 Map.of(
                         "name", name,
                         "sportTypeId", sportTypeId,
-                        "ownerId", ownerId,
-                        "createdAt", Timestamp.from(Instant.now())
+                        "ownerId", ownerId
                 ),
                 UUID.class
         );
@@ -177,15 +174,14 @@ class ClubRepository {
 
     UUID createInvitation(UUID clubId, String name, UUID createdBy) {
         return jdbc.queryForObject("""
-                INSERT INTO invitation (club_id, name, created_by, created_at)
-                VALUES (:clubId, :name, :createdBy, :createdAt)
+                INSERT INTO invitation (club_id, name, created_by)
+                VALUES (:clubId, :name, :createdBy)
                 RETURNING id
                 """,
                 Map.of(
                         "clubId", clubId,
                         "name", name,
-                        "createdBy", createdBy,
-                        "createdAt", Timestamp.from(Instant.now())
+                        "createdBy", createdBy
                 ),
                 UUID.class
         );

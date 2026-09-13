@@ -9,5 +9,5 @@ import java.util.UUID;
 @Builder
 class FriendBrief {
     UUID id;
-    String displayName;
+    String name;
 }

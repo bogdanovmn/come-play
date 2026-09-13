@@ -6,5 +6,5 @@ import java.util.UUID;
 
 @Value
 class EnrollRequest {
-    UUID userId;
+    UUID friendId;
 }

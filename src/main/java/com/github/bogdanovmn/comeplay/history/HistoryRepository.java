@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -19,16 +17,15 @@ class HistoryRepository {
 
     void recordVisit(UUID clubId, UUID userId, LocalDate slotDate, String sportType) {
         jdbc.update("""
-                INSERT INTO visit_history (club_id, user_id, slot_date, sport_type, recorded_at)
-                VALUES (:clubId, :userId, :slotDate, :sportType, :recordedAt)
+                INSERT INTO visit_history (club_id, user_id, slot_date, sport_type)
+                VALUES (:clubId, :userId, :slotDate, :sportType)
                 ON CONFLICT DO NOTHING
                 """,
                 Map.of(
                         "clubId", clubId,
                         "userId", userId,
                         "slotDate", slotDate,
-                        "sportType", sportType,
-                        "recordedAt", Timestamp.from(Instant.now())
+                        "sportType", sportType
                 )
         );
     }

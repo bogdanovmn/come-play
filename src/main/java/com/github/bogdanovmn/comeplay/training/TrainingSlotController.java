@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,13 +32,25 @@ class TrainingSlotController {
         @RequestBody(required = false) EnrollRequest request,
         @CurrentUserId UUID userId
     ) {
-        UUID targetUserId = (request != null && request.getUserId() != null) ? request.getUserId() : userId;
-        trainingService.enroll(slotId, targetUserId, userId);
+        UUID friendId = request != null ? request.getFriendId() : null;
+        if (friendId != null) {
+            trainingService.enrollFriend(slotId, friendId, userId);
+        } else {
+            trainingService.enroll(slotId, userId, userId);
+        }
     }
 
     @DeleteMapping("/{slotId}/enroll")
-    void unenroll(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
-        trainingService.unenroll(slotId, userId);
+    void unenroll(
+        @PathVariable UUID slotId,
+        @RequestParam(required = false) UUID friendId,
+        @CurrentUserId UUID userId
+    ) {
+        if (friendId != null) {
+            trainingService.unenrollFriend(slotId, friendId, userId);
+        } else {
+            trainingService.unenroll(slotId, userId);
+        }
     }
 
     @GetMapping("/{slotId}/enrollments")

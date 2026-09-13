@@ -41,22 +41,16 @@ class UserService {
     }
 
     @Transactional
-    public void addFriend(UUID userId, UUID friendId) {
-        if (userId.equals(friendId)) {
-            throw new IllegalArgumentException("Cannot add yourself as friend");
+    public void addFriend(UUID userId, String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Friend name is required");
         }
-        userRepository.getOrCreate(friendId, null);
-        userRepository.addFriend(userId, friendId);
+        userRepository.createFriend(userId, name.trim());
     }
 
     @Transactional
     public void removeFriend(UUID userId, UUID friendId) {
-        userRepository.removeFriend(userId, friendId);
-    }
-
-    @Transactional(readOnly = true)
-    public List<UserProfile> search(String term, UUID userId) {
-        return userRepository.searchByDisplayName(term, userId);
+        userRepository.deleteFriend(userId, friendId);
     }
 
     private String jwtUserName() {

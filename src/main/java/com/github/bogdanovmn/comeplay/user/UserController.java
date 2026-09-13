@@ -36,16 +36,11 @@ class UserController {
     @PostMapping("/me/friends")
     @ResponseStatus(HttpStatus.CREATED)
     void addFriend(@Valid @RequestBody AddFriendRequest request, @CurrentUserId UUID userId) {
-        userService.addFriend(userId, request.getUserId());
+        userService.addFriend(userId, request.getName());
     }
 
     @DeleteMapping("/me/friends/{friendId}")
     void removeFriend(@PathVariable UUID friendId, @CurrentUserId UUID userId) {
         userService.removeFriend(userId, friendId);
-    }
-
-    @GetMapping("/search")
-    List<UserProfile> search(@RequestParam String term, @CurrentUserId UUID userId) {
-        return userService.search(term, userId);
     }
 }
