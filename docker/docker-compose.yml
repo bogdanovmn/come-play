@@ -4,7 +4,7 @@ services:
     image: comeplay:${BACKEND_VERSION:-latest}
     container_name: cp-container
     ports:
-      - "8084:8080"
+      - "8085:8080"
     env_file:
       - .env
     environment:
