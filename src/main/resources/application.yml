@@ -1,6 +1,6 @@
 spring:
   application:
-    name: come-play
+    name: comeplay
   datasource:
     url: jdbc:postgresql://hserver2:5432/comeplay
     username: root
