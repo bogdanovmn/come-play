@@ -2,6 +2,7 @@ package com.github.bogdanovmn.comeplay.user;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -41,10 +42,9 @@ public class UserRepository {
                 INSERT INTO app_user (id, display_name) VALUES (:userId, :displayName)
                 ON CONFLICT (id) DO NOTHING
                 """,
-                Map.of(
-                        "userId", userId,
-                        "displayName", displayName == null ? "Player" : displayName
-                )
+                new MapSqlParameterSource()
+                        .addValue("userId", userId)
+                        .addValue("displayName", displayName == null ? "Player" : displayName)
         );
         return findById(userId).orElseThrow();
     }

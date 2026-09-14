@@ -25,6 +25,15 @@ class TrainingService {
         return trainingRepository.listByClub(clubId);
     }
 
+    @Transactional(readOnly = true)
+    public TrainingSlot getSlot(UUID slotId, UUID userId) {
+        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+            .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
+        Training training = requireTraining(slot.getTrainingId());
+        accessManagement.requireMember(training.getClubId(), userId);
+        return slot;
+    }
+
     @Transactional
     public TrainingBrief create(UUID clubId, CreateTrainingRequest request, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
@@ -147,10 +156,12 @@ class TrainingService {
             .orElseThrow(() -> new NoSuchElementException("Training not found"));
         accessManagement.requireMember(training.getClubId(), userId);
         UUID commentId = trainingRepository.createComment(slotId, userId, text);
+        String authorName = trainingRepository.findUserName(userId);
         return Comment.builder()
             .id(commentId)
             .slotId(slotId)
             .userId(userId)
+            .authorName(authorName)
             .text(text)
         .build();
     }

@@ -43,9 +43,9 @@ class ClubService {
 
     @Transactional
     @CacheEvict(value = "clubs", key = "#ownerId")
-    public ClubBrief create(String name, int sportTypeId, UUID ownerId) {
+    public ClubBrief create(String name, int sportTypeId, String description, UUID ownerId) {
         String sportTypeName = sportTypeService.requireById(sportTypeId).getName();
-        UUID clubId = clubRepository.create(name, sportTypeId, ownerId);
+        UUID clubId = clubRepository.create(name, sportTypeId, description, ownerId);
         clubRepository.addMember(clubId, ownerId);
         return ClubBrief.builder()
                 .id(clubId)
@@ -58,10 +58,10 @@ class ClubService {
 
     @Transactional
     @CacheEvict(value = {"club", "clubs"}, key = "#clubId")
-    public void update(UUID clubId, String name, int sportTypeId, UUID userId) {
+    public void update(UUID clubId, String name, int sportTypeId, String description, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
         sportTypeService.requireById(sportTypeId);
-        clubRepository.update(clubId, name, sportTypeId);
+        clubRepository.update(clubId, name, sportTypeId, description);
     }
 
     @Transactional
@@ -84,10 +84,25 @@ class ClubService {
         return clubRepository.findInvitationById(invitationId).orElseThrow();
     }
 
+    @Transactional(readOnly = true)
+    public InvitationInfo invitationInfo(UUID invitationId) {
+        return clubRepository.findInvitationInfoById(invitationId)
+                .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
+    }
+
     @Transactional
     public void joinByInvitation(UUID invitationId, UUID userId) {
         Invitation invitation = clubRepository.findInvitationById(invitationId)
                 .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
         clubRepository.addMember(invitation.getClubId(), userId);
+        clubRepository.recordJoiner(invitation.getId(), userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InvitationJoiner> listJoiners(UUID invitationId, UUID userId) {
+        Invitation invitation = clubRepository.findInvitationById(invitationId)
+                .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
+        accessManagement.requireOwner(invitation.getClubId(), userId);
+        return clubRepository.listInvitationJoiners(invitationId);
     }
 }

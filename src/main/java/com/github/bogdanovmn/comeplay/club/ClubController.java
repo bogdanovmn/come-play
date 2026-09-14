@@ -43,12 +43,12 @@ class ClubController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     ClubBrief create(@Valid @RequestBody CreateClubRequest request, @CurrentUserId UUID userId) {
-        return clubService.create(request.getName(), request.getSportTypeId(), userId);
+        return clubService.create(request.getName(), request.getSportTypeId(), request.getDescription(), userId);
     }
 
     @PutMapping("/{clubId}")
     void update(@PathVariable UUID clubId, @Valid @RequestBody UpdateClubRequest request, @CurrentUserId UUID userId) {
-        clubService.update(clubId, request.getName(), request.getSportTypeId(), userId);
+        clubService.update(clubId, request.getName(), request.getSportTypeId(), request.getDescription(), userId);
     }
 
     @PutMapping("/{clubId}/close")
@@ -67,8 +67,19 @@ class ClubController {
         return clubService.createInvitation(clubId, request.getName(), userId);
     }
 
+    @GetMapping("/{clubId}/invitations/{invitationId}/joiners")
+    List<InvitationJoiner> listJoiners(@PathVariable UUID invitationId, @CurrentUserId UUID userId) {
+        return clubService.listJoiners(invitationId, userId);
+    }
+
     @PostMapping("/invitations/{invitationId}/join")
     void joinByInvitation(@PathVariable UUID invitationId, @CurrentUserId UUID userId) {
         clubService.joinByInvitation(invitationId, userId);
+    }
+
+    @GetMapping("/invitations/{invitationId}")
+    @PreAuthorize("permitAll()")
+    InvitationInfo invitationInfo(@PathVariable UUID invitationId) {
+        return clubService.invitationInfo(invitationId);
     }
 }

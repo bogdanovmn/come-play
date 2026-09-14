@@ -13,10 +13,13 @@ import java.util.UUID;
 class TrainingSlot {
     UUID id;
     UUID trainingId;
+    UUID clubId;
+    String clubName;
     LocalDate slotDate;
     DayOfWeek dayOfWeek;
     LocalTime startTime;
     LocalTime endTime;
     int enrolledCount;
     int maxPlayers;
+    int commentsCount;
 }

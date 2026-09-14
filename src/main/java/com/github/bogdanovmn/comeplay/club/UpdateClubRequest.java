@@ -15,4 +15,7 @@ class UpdateClubRequest {
     @NotNull
     @Positive
     Integer sportTypeId;
+
+    @Size(max = 2000)
+    String description;
 }

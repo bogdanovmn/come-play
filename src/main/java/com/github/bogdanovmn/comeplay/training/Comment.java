@@ -12,6 +12,7 @@ class Comment {
     UUID id;
     UUID slotId;
     UUID userId;
+    String authorName;
     String text;
     Instant createdAt;
 }

@@ -14,6 +14,8 @@ class Club {
     int sportTypeId;
     String sportTypeName;
     UUID ownerId;
+    String ownerName;
+    String description;
     boolean closed;
     Instant createdAt;
 }

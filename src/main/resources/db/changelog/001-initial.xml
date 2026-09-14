@@ -36,6 +36,7 @@
                 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                 name varchar(200) NOT NULL,
                 sport_type_id int NOT NULL REFERENCES sport_type(id),
+                description varchar(2000),
                 owner_id uuid NOT NULL REFERENCES app_user(id),
                 closed boolean NOT NULL DEFAULT false,
                 created_at timestamp NOT NULL DEFAULT now()
@@ -127,6 +128,15 @@
             CREATE INDEX idx_visit_history_club ON visit_history(club_id);
             CREATE INDEX idx_visit_history_user ON visit_history(user_id);
             CREATE INDEX idx_visit_history_date ON visit_history(slot_date);
+        </sql>
+
+        <sql>
+            CREATE TABLE invitation_history (
+                invitation_id uuid NOT NULL REFERENCES invitation(id) ON DELETE CASCADE,
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                joined_at timestamp NOT NULL DEFAULT now(),
+                PRIMARY KEY (invitation_id, user_id)
+            );
         </sql>
     </changeSet>
 

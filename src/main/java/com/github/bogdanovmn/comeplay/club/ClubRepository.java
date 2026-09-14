@@ -2,6 +2,7 @@ package com.github.bogdanovmn.comeplay.club;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +21,8 @@ class ClubRepository {
             .sportTypeId(rs.getInt("sport_type_id"))
             .sportTypeName(rs.getString("sport_type_name"))
             .ownerId(UUID.fromString(rs.getString("owner_id")))
+            .ownerName(rs.getString("owner_name"))
+            .description(rs.getString("description"))
             .closed(rs.getBoolean("closed"))
             .createdAt(rs.getTimestamp("created_at").toInstant())
             .build();
@@ -72,9 +75,11 @@ class ClubRepository {
 
     Optional<Club> findById(UUID clubId) {
         var result = jdbc.query("""
-                SELECT c.id, c.name, c.sport_type_id, st.name AS sport_type_name, c.owner_id, c.closed, c.created_at
+                SELECT c.id, c.name, c.sport_type_id, st.name AS sport_type_name,
+                    c.owner_id, u.display_name AS owner_name, c.description, c.closed, c.created_at
                 FROM club c
                 JOIN sport_type st ON st.id = c.sport_type_id
+                JOIN app_user u ON u.id = c.owner_id
                 WHERE c.id = :clubId
                 """,
                 Map.of("clubId", clubId),
@@ -83,26 +88,27 @@ class ClubRepository {
         return result.stream().findFirst();
     }
 
-    UUID create(String name, int sportTypeId, UUID ownerId) {
+    UUID create(String name, int sportTypeId, String description, UUID ownerId) {
         return jdbc.queryForObject("""
-                INSERT INTO club (name, sport_type_id, owner_id, closed)
-                VALUES (:name, :sportTypeId, :ownerId, false)
+                INSERT INTO club (name, sport_type_id, description, owner_id, closed)
+                VALUES (:name, :sportTypeId, :description, :ownerId, false)
                 RETURNING id
                 """,
-                Map.of(
-                        "name", name,
-                        "sportTypeId", sportTypeId,
-                        "ownerId", ownerId
-                ),
+                new MapSqlParameterSource()
+                    .addValue("name", name)
+                    .addValue("sportTypeId", sportTypeId)
+                    .addValue("description", description)
+                    .addValue("ownerId", ownerId),
                 UUID.class
         );
     }
 
-    void update(UUID clubId, String name, int sportTypeId) {
+    void update(UUID clubId, String name, int sportTypeId, String description) {
         jdbc.update("""
-                UPDATE club SET name = :name, sport_type_id = :sportTypeId WHERE id = :clubId
+                UPDATE club SET name = :name, sport_type_id = :sportTypeId, description = :description
+                WHERE id = :clubId
                 """,
-                Map.of("clubId", clubId, "name", name, "sportTypeId", sportTypeId)
+                Map.of("clubId", clubId, "name", name, "sportTypeId", sportTypeId, "description", description)
         );
     }
 
@@ -144,7 +150,7 @@ class ClubRepository {
     List<InvitationBrief> listInvitations(UUID clubId) {
         return jdbc.query("""
                 SELECT i.id, i.name,
-                    (SELECT COUNT(*) FROM club_member cm WHERE cm.club_id = :clubId) AS joined_count
+                    (SELECT COUNT(*) FROM invitation_history ji WHERE ji.invitation_id = i.id) AS joined_count
                 FROM invitation i
                 WHERE i.club_id = :clubId
                 ORDER BY i.created_at
@@ -152,6 +158,51 @@ class ClubRepository {
                 Map.of("clubId", clubId),
                 INVITATION_BRIEF_ROW_MAPPER
         );
+    }
+
+    List<InvitationJoiner> listInvitationJoiners(UUID invitationId) {
+        return jdbc.query("""
+                SELECT u.id AS user_id, u.display_name AS name, ji.joined_at
+                FROM invitation_history ji
+                JOIN app_user u ON u.id = ji.user_id
+                WHERE ji.invitation_id = :invitationId
+                ORDER BY ji.joined_at
+                """,
+                Map.of("invitationId", invitationId),
+                (rs, rowNum) -> InvitationJoiner.builder()
+                        .userId(UUID.fromString(rs.getString("user_id")))
+                        .name(rs.getString("name"))
+                        .registeredAt(rs.getTimestamp("joined_at").toInstant())
+                        .build()
+        );
+    }
+
+    void recordJoiner(UUID invitationId, UUID userId) {
+        jdbc.update("""
+                INSERT INTO invitation_history (invitation_id, user_id)
+                VALUES (:invitationId, :userId)
+                ON CONFLICT DO NOTHING
+                """,
+                Map.of("invitationId", invitationId, "userId", userId)
+        );
+    }
+
+    Optional<InvitationInfo> findInvitationInfoById(UUID invitationId) {
+        var result = jdbc.query("""
+                SELECT i.id, i.club_id, c.name AS club_name, i.name
+                FROM invitation i
+                JOIN club c ON c.id = i.club_id
+                WHERE i.id = :invitationId
+                """,
+                Map.of("invitationId", invitationId),
+                (rs, rowNum) -> InvitationInfo.builder()
+                        .id(UUID.fromString(rs.getString("id")))
+                        .clubId(UUID.fromString(rs.getString("club_id")))
+                        .clubName(rs.getString("club_name"))
+                        .name(rs.getString("name"))
+                        .build()
+        );
+        return result.stream().findFirst();
     }
 
     Optional<Invitation> findInvitationById(UUID invitationId) {

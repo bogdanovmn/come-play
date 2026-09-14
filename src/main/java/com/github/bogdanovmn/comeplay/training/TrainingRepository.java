@@ -2,6 +2,7 @@ package com.github.bogdanovmn.comeplay.training;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -28,12 +29,15 @@ class TrainingRepository {
     private static final RowMapper<TrainingSlot> SLOT_ROW_MAPPER = (rs, rowNum) -> TrainingSlot.builder()
         .id(UUID.fromString(rs.getString("id")))
         .trainingId(UUID.fromString(rs.getString("training_id")))
+        .clubId(UUID.fromString(rs.getString("club_id")))
+        .clubName(rs.getString("club_name"))
         .slotDate(rs.getDate("slot_date").toLocalDate())
         .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
         .startTime(rs.getTime("start_time").toLocalTime())
         .endTime(rs.getTime("end_time").toLocalTime())
         .enrolledCount(rs.getInt("enrolled_count"))
         .maxPlayers(rs.getInt("max_players"))
+        .commentsCount(rs.getInt("comments_count"))
         .build();
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -135,9 +139,12 @@ class TrainingRepository {
         return jdbc.query("""
                 SELECT ts.id, ts.training_id, ts.slot_date,
                     (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    t.day_of_week, t.start_time, t.end_time, t.max_players
+                    (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
+                    t.day_of_week, t.start_time, t.end_time, t.max_players,
+                    c.id AS club_id, c.name AS club_name
                 FROM training_slot ts
                 JOIN training t ON t.id = ts.training_id
+                JOIN club c ON c.id = t.club_id
                 WHERE t.club_id = :clubId
                     AND ts.slot_date >= :from AND ts.slot_date <= :to
                 ORDER BY ts.slot_date, t.start_time
@@ -151,9 +158,12 @@ class TrainingRepository {
         return jdbc.query("""
                 SELECT ts.id, ts.training_id, ts.slot_date,
                     (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    t.day_of_week, t.start_time, t.end_time, t.max_players
+                    (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
+                    t.day_of_week, t.start_time, t.end_time, t.max_players,
+                    c.id AS club_id, c.name AS club_name
                 FROM training_slot ts
                 JOIN training t ON t.id = ts.training_id
+                JOIN club c ON c.id = t.club_id
                 WHERE ts.training_id = :trainingId
                 ORDER BY ts.slot_date
                 """,
@@ -166,9 +176,12 @@ class TrainingRepository {
         var result = jdbc.query("""
                 SELECT ts.id, ts.training_id, ts.slot_date,
                     (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    t.day_of_week, t.start_time, t.end_time, t.max_players
+                    (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
+                    t.day_of_week, t.start_time, t.end_time, t.max_players,
+                    c.id AS club_id, c.name AS club_name
                 FROM training_slot ts
                 JOIN training t ON t.id = ts.training_id
+                JOIN club c ON c.id = t.club_id
                 WHERE ts.id = :slotId
                 """,
             Map.of("slotId", slotId),
@@ -223,12 +236,11 @@ class TrainingRepository {
                 VALUES (:slotId, :userId, :friendId, :enrolledBy)
                 ON CONFLICT DO NOTHING
                 """,
-            Map.of(
-                "slotId", slotId,
-                "userId", userId,
-                "friendId", friendId,
-                "enrolledBy", enrolledBy
-            )
+            new MapSqlParameterSource()
+                .addValue("slotId", slotId)
+                .addValue("userId", userId)
+                .addValue("friendId", friendId)
+                .addValue("enrolledBy", enrolledBy)
         );
     }
 
@@ -238,7 +250,10 @@ class TrainingRepository {
             : "DELETE FROM training_enrollment WHERE slot_id = :slotId AND user_id = :userId";
         jdbc.update(
             sql,
-            Map.of("slotId", slotId, "userId", userId, "friendId", friendId)
+            new MapSqlParameterSource()
+                .addValue("slotId", slotId)
+                .addValue("userId", userId)
+                .addValue("friendId", friendId)
         );
     }
 
@@ -267,19 +282,33 @@ class TrainingRepository {
 
     List<Comment> listComments(UUID slotId) {
         return jdbc.query("""
-                SELECT id, slot_id, user_id, text, created_at
-                FROM training_comment
-                WHERE slot_id = :slotId
-                ORDER BY created_at
+                SELECT c.id, c.slot_id, c.user_id, COALESCE(u.display_name, 'Игрок') AS author_name,
+                    c.text, c.created_at
+                FROM training_comment c
+                LEFT JOIN app_user u ON u.id = c.user_id
+                WHERE c.slot_id = :slotId
+                ORDER BY c.created_at
                 """,
             Map.of("slotId", slotId),
             (rs, rowNum) -> Comment.builder()
                 .id(UUID.fromString(rs.getString("id")))
                 .slotId(UUID.fromString(rs.getString("slot_id")))
                 .userId(UUID.fromString(rs.getString("user_id")))
+                .authorName(rs.getString("author_name"))
                 .text(rs.getString("text"))
                 .createdAt(rs.getTimestamp("created_at").toInstant())
             .build()
+        );
+    }
+
+    String findUserName(UUID userId) {
+        return jdbc.queryForObject("""
+                SELECT COALESCE(display_name, 'Игрок')
+                FROM app_user
+                WHERE id = :userId
+                """,
+            Map.of("userId", userId),
+            String.class
         );
     }
 

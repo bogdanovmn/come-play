@@ -2,6 +2,7 @@ package com.github.bogdanovmn.comeplay.training;
 
 import com.github.bogdanovmn.comeplay.infrastructure.security.CurrentUserId;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,13 +19,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/slots")
+@RequiredArgsConstructor
 class TrainingSlotController {
 
     private final TrainingService trainingService;
-
-    TrainingSlotController(TrainingService trainingService) {
-        this.trainingService = trainingService;
-    }
 
     @PostMapping("/{slotId}/enroll")
     void enroll(
@@ -56,6 +54,11 @@ class TrainingSlotController {
     @GetMapping("/{slotId}/enrollments")
     List<Enrollment> listEnrollments(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
         return trainingService.listEnrollments(slotId, userId);
+    }
+
+    @GetMapping("/{slotId}")
+    TrainingSlot get(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
+        return trainingService.getSlot(slotId, userId);
     }
 
     @GetMapping("/{slotId}/comments")
