@@ -54,6 +54,7 @@
                 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                 club_id uuid NOT NULL REFERENCES club(id),
                 name varchar(200) NOT NULL,
+                active boolean NOT NULL DEFAULT true,
                 created_by uuid NOT NULL REFERENCES app_user(id),
                 created_at timestamp NOT NULL DEFAULT now()
             );

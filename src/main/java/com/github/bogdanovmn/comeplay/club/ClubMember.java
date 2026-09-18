@@ -7,9 +7,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-class InvitationBrief {
+class ClubMember {
     UUID id;
     String name;
-    int joinedCount;
-    boolean active;
 }

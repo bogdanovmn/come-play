@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -72,6 +73,11 @@ class ClubController {
         return clubService.listJoiners(invitationId, userId);
     }
 
+    @DeleteMapping("/{clubId}/invitations/{invitationId}")
+    void deleteInvitation(@PathVariable UUID clubId, @PathVariable UUID invitationId, @CurrentUserId UUID userId) {
+        clubService.deleteInvitation(clubId, invitationId, userId);
+    }
+
     @PostMapping("/invitations/{invitationId}/join")
     void joinByInvitation(@PathVariable UUID invitationId, @CurrentUserId UUID userId) {
         clubService.joinByInvitation(invitationId, userId);
@@ -81,5 +87,15 @@ class ClubController {
     @PreAuthorize("permitAll()")
     InvitationInfo invitationInfo(@PathVariable UUID invitationId) {
         return clubService.invitationInfo(invitationId);
+    }
+
+    @GetMapping("/{clubId}/members")
+    List<ClubMember> listMembers(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
+        return clubService.listMembers(clubId, userId);
+    }
+
+    @DeleteMapping("/{clubId}/members")
+    void leave(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
+        clubService.leave(clubId, userId);
     }
 }

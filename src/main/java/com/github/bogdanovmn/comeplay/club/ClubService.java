@@ -84,16 +84,25 @@ class ClubService {
         return clubRepository.findInvitationById(invitationId).orElseThrow();
     }
 
+    @Transactional
+    public void deleteInvitation(UUID clubId, UUID invitationId, UUID userId) {
+        accessManagement.requireOwner(clubId, userId);
+        clubRepository.softDeleteInvitation(invitationId);
+    }
+
     @Transactional(readOnly = true)
     public InvitationInfo invitationInfo(UUID invitationId) {
         return clubRepository.findInvitationInfoById(invitationId)
-                .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
+                .orElseThrow(() -> new NoSuchElementException("Invitation is not active anymore: " + invitationId));
     }
 
     @Transactional
     public void joinByInvitation(UUID invitationId, UUID userId) {
         Invitation invitation = clubRepository.findInvitationById(invitationId)
                 .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
+        if (!invitation.isActive()) {
+            throw new NoSuchElementException("Invitation is not active anymore: " + invitationId);
+        }
         clubRepository.addMember(invitation.getClubId(), userId);
         clubRepository.recordJoiner(invitation.getId(), userId);
     }
@@ -104,5 +113,18 @@ class ClubService {
                 .orElseThrow(() -> new NoSuchElementException("Invitation not found: " + invitationId));
         accessManagement.requireOwner(invitation.getClubId(), userId);
         return clubRepository.listInvitationJoiners(invitationId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClubMember> listMembers(UUID clubId, UUID userId) {
+        accessManagement.requireMember(clubId, userId);
+        return clubRepository.listMembers(clubId);
+    }
+
+    @Transactional
+    public void leave(UUID clubId, UUID userId) {
+        accessManagement.requireMember(clubId, userId);
+        accessManagement.requireNotOwner(clubId, userId);
+        clubRepository.removeMember(clubId, userId);
     }
 }

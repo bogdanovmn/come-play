@@ -22,4 +22,10 @@ public class AccessManagement {
             throw new AccessDeniedException("No access to club %s for owner %s".formatted(clubId, userId));
         }
     }
+
+    public void requireNotOwner(UUID clubId, UUID userId) {
+        if (accessManagementRepository.isOwner(clubId, userId)) {
+            throw new AccessDeniedException("Club owner %s cannot leave own club %s".formatted(userId, clubId));
+        }
+    }
 }

@@ -14,4 +14,5 @@ class Invitation {
     String name;
     UUID createdBy;
     Instant createdAt;
+    boolean active;
 }

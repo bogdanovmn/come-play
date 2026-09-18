@@ -39,6 +39,7 @@ class ClubRepository {
             .id(UUID.fromString(rs.getString("id")))
             .name(rs.getString("name"))
             .joinedCount(rs.getInt("joined_count"))
+            .active(rs.getBoolean("active"))
             .build();
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -147,9 +148,42 @@ class ClubRepository {
         );
     }
 
+    void removeMember(UUID clubId, UUID userId) {
+        jdbc.update("""
+                DELETE FROM club_member
+                WHERE club_id = :clubId AND user_id = :userId
+                """,
+                Map.of("clubId", clubId, "userId", userId)
+        );
+    }
+
+    List<ClubMember> listMembers(UUID clubId) {
+        return jdbc.query("""
+                SELECT u.id, u.display_name AS name
+                FROM club_member cm
+                JOIN app_user u ON u.id = cm.user_id
+                WHERE cm.club_id = :clubId
+                ORDER BY u.display_name
+                """,
+                Map.of("clubId", clubId),
+                (rs, rowNum) -> ClubMember.builder()
+                        .id(UUID.fromString(rs.getString("id")))
+                        .name(rs.getString("name"))
+                        .build()
+        );
+    }
+
+    void softDeleteInvitation(UUID invitationId) {
+        jdbc.update("""
+                UPDATE invitation SET active = false WHERE id = :invitationId
+                """,
+                Map.of("invitationId", invitationId)
+        );
+    }
+
     List<InvitationBrief> listInvitations(UUID clubId) {
         return jdbc.query("""
-                SELECT i.id, i.name,
+                SELECT i.id, i.name, i.active,
                     (SELECT COUNT(*) FROM invitation_history ji WHERE ji.invitation_id = i.id) AS joined_count
                 FROM invitation i
                 WHERE i.club_id = :clubId
@@ -192,7 +226,7 @@ class ClubRepository {
                 SELECT i.id, i.club_id, c.name AS club_name, i.name
                 FROM invitation i
                 JOIN club c ON c.id = i.club_id
-                WHERE i.id = :invitationId
+                WHERE i.id = :invitationId AND i.active = true
                 """,
                 Map.of("invitationId", invitationId),
                 (rs, rowNum) -> InvitationInfo.builder()
@@ -207,7 +241,7 @@ class ClubRepository {
 
     Optional<Invitation> findInvitationById(UUID invitationId) {
         var result = jdbc.query("""
-                SELECT id, club_id, name, created_by, created_at
+                SELECT id, club_id, name, created_by, created_at, active
                 FROM invitation
                 WHERE id = :invitationId
                 """,
@@ -218,6 +252,7 @@ class ClubRepository {
                         .name(rs.getString("name"))
                         .createdBy(UUID.fromString(rs.getString("created_by")))
                         .createdAt(rs.getTimestamp("created_at").toInstant())
+                        .active(rs.getBoolean("active"))
                         .build()
         );
         return result.stream().findFirst();
