@@ -15,4 +15,5 @@ class Enrollment {
     String name;
     UUID enrolledBy;
     Instant enrolledAt;
+    boolean comingLater;
 }

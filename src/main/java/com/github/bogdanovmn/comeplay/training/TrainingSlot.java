@@ -22,4 +22,6 @@ class TrainingSlot {
     int enrolledCount;
     int maxPlayers;
     int commentsCount;
+    String features;
+    boolean overridden;
 }

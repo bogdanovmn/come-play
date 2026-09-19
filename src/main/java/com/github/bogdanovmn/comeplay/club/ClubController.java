@@ -57,6 +57,11 @@ class ClubController {
         clubService.close(clubId, userId);
     }
 
+    @PutMapping("/{clubId}/open")
+    void open(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
+        clubService.open(clubId, userId);
+    }
+
     @GetMapping("/{clubId}/invitations")
     List<InvitationBrief> listInvitations(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
         return clubService.listInvitations(clubId, userId);

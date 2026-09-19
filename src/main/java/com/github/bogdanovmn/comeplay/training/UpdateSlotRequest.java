@@ -4,18 +4,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Builder;
 import lombok.Value;
 
-import java.time.DayOfWeek;
 import java.time.LocalTime;
 
 @Value
-@Builder
-class CreateTrainingRequest {
-    @NotNull
-    DayOfWeek dayOfWeek;
-
+class UpdateSlotRequest {
     @NotNull
     LocalTime startTime;
 

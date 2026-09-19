@@ -121,6 +121,14 @@ class ClubRepository {
         );
     }
 
+    void open(UUID clubId) {
+        jdbc.update("""
+                UPDATE club SET closed = false WHERE id = :clubId
+                """,
+                Map.of("clubId", clubId)
+        );
+    }
+
     boolean isOwner(UUID clubId, UUID userId) {
         var result = jdbc.queryForList("""
                 SELECT 1 FROM club WHERE id = :clubId AND owner_id = :userId

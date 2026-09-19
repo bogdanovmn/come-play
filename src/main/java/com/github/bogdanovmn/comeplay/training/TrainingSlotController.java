@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -74,5 +75,28 @@ class TrainingSlotController {
         @CurrentUserId UUID userId
     ) {
         return trainingService.createComment(slotId, request.getText(), userId);
+    }
+
+    @PutMapping("/{slotId}/coming-later")
+    void setComingLater(
+        @PathVariable UUID slotId,
+        @Valid @RequestBody ComingLaterRequest request,
+        @CurrentUserId UUID userId
+    ) {
+        trainingService.setComingLater(slotId, request.getComingLater(), userId);
+    }
+
+    @PutMapping("/{slotId}/params")
+    TrainingSlot updateParams(
+        @PathVariable UUID slotId,
+        @Valid @RequestBody UpdateSlotRequest request,
+        @CurrentUserId UUID userId
+    ) {
+        return trainingService.updateSlot(slotId, request, userId);
+    }
+
+    @DeleteMapping("/{slotId}/params")
+    TrainingSlot clearParams(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
+        return trainingService.clearSlotOverrides(slotId, userId);
     }
 }

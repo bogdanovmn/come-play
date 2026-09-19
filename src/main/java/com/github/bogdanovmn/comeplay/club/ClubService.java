@@ -65,6 +65,12 @@ class ClubService {
     }
 
     @Transactional
+    public void open(UUID clubId, UUID userId) {
+        accessManagement.requireOwner(clubId, userId);
+        clubRepository.open(clubId);
+    }
+
+    @Transactional
     public List<InvitationBrief> listInvitations(UUID clubId, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
         return clubRepository.listInvitations(clubId);

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-features-and-slot-overrides" author="come-play">
+        <sql>
+            ALTER TABLE training ADD COLUMN features varchar(1000);
+        </sql>
+
+        <sql>
+            ALTER TABLE training_slot
+                ADD COLUMN start_time time,
+                ADD COLUMN end_time time,
+                ADD COLUMN max_players int,
+                ADD COLUMN features varchar(1000);
+        </sql>
+
+        <sql>
+            ALTER TABLE training_enrollment ADD COLUMN coming_later boolean NOT NULL DEFAULT false;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

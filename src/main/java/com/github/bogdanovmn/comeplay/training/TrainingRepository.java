@@ -25,6 +25,7 @@ class TrainingRepository {
         .startTime(rs.getTime("start_time").toLocalTime())
         .endTime(rs.getTime("end_time").toLocalTime())
         .maxPlayers(rs.getInt("max_players"))
+        .features(rs.getString("features"))
     .build();
 
     private static final RowMapper<TrainingSlot> SLOT_ROW_MAPPER = (rs, rowNum) -> TrainingSlot.builder()
@@ -39,13 +40,31 @@ class TrainingRepository {
         .enrolledCount(rs.getInt("enrolled_count"))
         .maxPlayers(rs.getInt("max_players"))
         .commentsCount(rs.getInt("comments_count"))
+        .features(rs.getString("features"))
+        .overridden(rs.getBoolean("overridden"))
         .build();
+
+    private static final String SLOT_SELECT = """
+            SELECT ts.id, ts.training_id, ts.slot_date,
+                (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
+                (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
+                t.day_of_week,
+                COALESCE(ts.start_time, t.start_time) AS start_time,
+                COALESCE(ts.end_time, t.end_time) AS end_time,
+                COALESCE(ts.max_players, t.max_players) AS max_players,
+                COALESCE(ts.features, t.features) AS features,
+                (ts.start_time IS NOT NULL OR ts.end_time IS NOT NULL OR ts.max_players IS NOT NULL OR ts.features IS NOT NULL) AS overridden,
+                c.id AS club_id, c.name AS club_name
+            FROM training_slot ts
+            JOIN training t ON t.id = ts.training_id
+            JOIN club c ON c.id = t.club_id
+            """;
 
     private final NamedParameterJdbcTemplate jdbc;
 
     List<TrainingBrief> listByClub(UUID clubId) {
         return jdbc.query("""
-                SELECT id, day_of_week, start_time, end_time, max_players
+                SELECT id, day_of_week, start_time, end_time, max_players, features
                 FROM training
                 WHERE club_id = :clubId
                 ORDER BY day_of_week, start_time
@@ -57,7 +76,7 @@ class TrainingRepository {
 
     Optional<Training> findById(UUID trainingId) {
         List<Training> result = jdbc.query("""
-                SELECT id, club_id, day_of_week, start_time, end_time, max_players
+                SELECT id, club_id, day_of_week, start_time, end_time, max_players, features
                 FROM training
                 WHERE id = :trainingId
                 """,
@@ -69,24 +88,25 @@ class TrainingRepository {
                 .startTime(rs.getTime("start_time").toLocalTime())
                 .endTime(rs.getTime("end_time").toLocalTime())
                 .maxPlayers(rs.getInt("max_players"))
+                .features(rs.getString("features"))
             .build()
         );
         return result.stream().findFirst();
     }
 
-    UUID create(UUID clubId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers) {
+    UUID create(UUID clubId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers, String features) {
         return jdbc.queryForObject("""
-                INSERT INTO training (club_id, day_of_week, start_time, end_time, max_players)
-                VALUES (:clubId, :dayOfWeek, :startTime, :endTime, :maxPlayers)
+                INSERT INTO training (club_id, day_of_week, start_time, end_time, max_players, features)
+                VALUES (:clubId, :dayOfWeek, :startTime, :endTime, :maxPlayers, :features)
                 RETURNING id
                 """,
-            Map.of(
-                "clubId", clubId,
-                "dayOfWeek", dayOfWeek,
-                "startTime", Time.valueOf(startTime),
-                "endTime", Time.valueOf(endTime),
-                "maxPlayers", maxPlayers
-            ),
+            new MapSqlParameterSource()
+                .addValue("clubId", clubId)
+                .addValue("dayOfWeek", dayOfWeek)
+                .addValue("startTime", Time.valueOf(startTime))
+                .addValue("endTime", Time.valueOf(endTime))
+                .addValue("maxPlayers", maxPlayers)
+                .addValue("features", features),
             UUID.class
         );
     }
@@ -117,39 +137,33 @@ class TrainingRepository {
         );
     }
 
-    void update(UUID trainingId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers) {
+    void update(UUID trainingId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers, String features) {
         jdbc.update("""
                 UPDATE training
                 SET day_of_week = :dayOfWeek,
                     start_time = :startTime,
                     end_time = :endTime,
-                    max_players = :maxPlayers
+                    max_players = :maxPlayers,
+                    features = :features
                 WHERE id = :trainingId
                 """,
-            Map.of(
-                "trainingId", trainingId,
-                "dayOfWeek", dayOfWeek,
-                "startTime", Time.valueOf(startTime),
-                "endTime", Time.valueOf(endTime),
-                "maxPlayers", maxPlayers
-            )
+            new MapSqlParameterSource()
+                .addValue("trainingId", trainingId)
+                .addValue("dayOfWeek", dayOfWeek)
+                .addValue("startTime", Time.valueOf(startTime))
+                .addValue("endTime", Time.valueOf(endTime))
+                .addValue("maxPlayers", maxPlayers)
+                .addValue("features", features)
         );
     }
 
     List<TrainingSlot> listSlots(UUID clubId, LocalDate from, LocalDate to) {
         return jdbc.query("""
-                SELECT ts.id, ts.training_id, ts.slot_date,
-                    (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
-                    t.day_of_week, t.start_time, t.end_time, t.max_players,
-                    c.id AS club_id, c.name AS club_name
-                FROM training_slot ts
-                JOIN training t ON t.id = ts.training_id
-                JOIN club c ON c.id = t.club_id
+                %s
                 WHERE t.club_id = :clubId
                     AND ts.slot_date >= :from AND ts.slot_date <= :to
-                ORDER BY ts.slot_date, t.start_time
-                """,
+                ORDER BY ts.slot_date, COALESCE(ts.start_time, t.start_time)
+                """.formatted(SLOT_SELECT),
             Map.of("clubId", clubId, "from", from, "to", to),
             SLOT_ROW_MAPPER
         );
@@ -157,17 +171,10 @@ class TrainingRepository {
 
     List<TrainingSlot> listSlotsByTraining(UUID trainingId) {
         return jdbc.query("""
-                SELECT ts.id, ts.training_id, ts.slot_date,
-                    (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
-                    t.day_of_week, t.start_time, t.end_time, t.max_players,
-                    c.id AS club_id, c.name AS club_name
-                FROM training_slot ts
-                JOIN training t ON t.id = ts.training_id
-                JOIN club c ON c.id = t.club_id
+                %s
                 WHERE ts.training_id = :trainingId
                 ORDER BY ts.slot_date
-                """,
+                """.formatted(SLOT_SELECT),
             Map.of("trainingId", trainingId),
             SLOT_ROW_MAPPER
         );
@@ -175,16 +182,9 @@ class TrainingRepository {
 
     Optional<TrainingSlot> findSlotById(UUID slotId) {
         var result = jdbc.query("""
-                SELECT ts.id, ts.training_id, ts.slot_date,
-                    (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                    (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
-                    t.day_of_week, t.start_time, t.end_time, t.max_players,
-                    c.id AS club_id, c.name AS club_name
-                FROM training_slot ts
-                JOIN training t ON t.id = ts.training_id
-                JOIN club c ON c.id = t.club_id
+                %s
                 WHERE ts.id = :slotId
-                """,
+                """.formatted(SLOT_SELECT),
             Map.of("slotId", slotId),
             SLOT_ROW_MAPPER
         );
@@ -262,7 +262,7 @@ class TrainingRepository {
         return jdbc.query("""
                 SELECT e.slot_id, e.user_id, e.friend_id,
                     COALESCE(u.display_name, f.name) AS name,
-                    e.enrolled_by, e.enrolled_at
+                    e.enrolled_by, e.enrolled_at, e.coming_later
                 FROM training_enrollment e
                 LEFT JOIN app_user u ON u.id = e.user_id
                 LEFT JOIN friend f ON f.id = e.friend_id
@@ -277,6 +277,7 @@ class TrainingRepository {
                 .name(rs.getString("name"))
                 .enrolledBy(UUID.fromString(rs.getString("enrolled_by")))
                 .enrolledAt(rs.getTimestamp("enrolled_at").toInstant())
+                .comingLater(rs.getBoolean("coming_later"))
                 .build()
         );
     }
@@ -325,6 +326,61 @@ class TrainingRepository {
                 "text", text
             ),
             UUID.class
+        );
+    }
+
+    boolean clubClosed(UUID clubId) {
+        Boolean closed = jdbc.queryForObject(
+            "SELECT closed FROM club WHERE id = :clubId",
+            Map.of("clubId", clubId),
+            Boolean.class
+        );
+        return closed != null && closed;
+    }
+
+    void updateSlotParams(UUID slotId, LocalTime startTime, LocalTime endTime, int maxPlayers, String features) {
+        jdbc.update("""
+                UPDATE training_slot
+                SET start_time = :startTime,
+                    end_time = :endTime,
+                    max_players = :maxPlayers,
+                    features = :features
+                WHERE id = :slotId
+                """,
+            Map.of(
+                "slotId", slotId,
+                "startTime", Time.valueOf(startTime),
+                "endTime", Time.valueOf(endTime),
+                "maxPlayers", maxPlayers,
+                "features", features
+            )
+        );
+    }
+
+    void clearSlotParams(UUID slotId) {
+        jdbc.update("""
+                UPDATE training_slot
+                SET start_time = NULL,
+                    end_time = NULL,
+                    max_players = NULL,
+                    features = NULL
+                WHERE id = :slotId
+                """,
+            Map.of("slotId", slotId)
+        );
+    }
+
+    void setComingLater(UUID slotId, UUID userId, boolean comingLater) {
+        jdbc.update("""
+                UPDATE training_enrollment
+                SET coming_later = :comingLater
+                WHERE slot_id = :slotId AND user_id = :userId AND friend_id IS NULL
+                """,
+            Map.of(
+                "slotId", slotId,
+                "userId", userId,
+                "comingLater", comingLater
+            )
         );
     }
 }

@@ -28,4 +28,8 @@ public class AccessManagement {
             throw new AccessDeniedException("Club owner %s cannot leave own club %s".formatted(userId, clubId));
         }
     }
+
+    public boolean isOwner(UUID clubId, UUID userId) {
+        return accessManagementRepository.isOwner(clubId, userId);
+    }
 }
