@@ -4,8 +4,6 @@ import com.github.bogdanovmn.comeplay.security.AccessManagement;
 import com.github.bogdanovmn.comeplay.sport.SportType;
 import com.github.bogdanovmn.comeplay.sport.SportTypeService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +21,6 @@ class ClubService {
     private final SportTypeService sportTypeService;
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "clubs", key = "#userId")
     public List<ClubBrief> listByOwner(UUID userId) {
         return clubRepository.listByOwner(userId);
     }
@@ -34,7 +31,6 @@ class ClubService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "club", key = "#clubId")
     public Club get(UUID clubId, UUID userId) {
         accessManagement.requireMember(clubId, userId);
         return clubRepository.findById(clubId)
@@ -42,7 +38,6 @@ class ClubService {
     }
 
     @Transactional
-    @CacheEvict(value = "clubs", key = "#ownerId")
     public ClubBrief create(String name, int sportTypeId, String description, UUID ownerId) {
         String sportTypeName = sportTypeService.requireById(sportTypeId).getName();
         UUID clubId = clubRepository.create(name, sportTypeId, description, ownerId);
@@ -57,7 +52,6 @@ class ClubService {
     }
 
     @Transactional
-    @CacheEvict(value = {"club", "clubs"}, key = "#clubId")
     public void update(UUID clubId, String name, int sportTypeId, String description, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
         sportTypeService.requireById(sportTypeId);
@@ -65,7 +59,6 @@ class ClubService {
     }
 
     @Transactional
-    @CacheEvict(value = {"club", "clubs"}, key = "#clubId")
     public void close(UUID clubId, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
         clubRepository.close(clubId);

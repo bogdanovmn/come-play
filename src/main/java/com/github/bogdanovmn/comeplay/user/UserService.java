@@ -3,7 +3,6 @@ package com.github.bogdanovmn.comeplay.user;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,10 +30,7 @@ class UserService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "userProfile", key = "#userId"),
-            @CacheEvict(value = {"club", "clubs"}, allEntries = true)
-    })
+    @CacheEvict(value = "userProfile", key = "#userId")
     public void updateDisplayName(UUID userId, String displayName) {
         userRepository.updateDisplayName(userId, displayName);
     }
