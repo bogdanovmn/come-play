@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Time;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -20,7 +21,7 @@ class TrainingRepository {
 
     private static final RowMapper<TrainingBrief> TRAINING_BRIEF_ROW_MAPPER = (rs, rowNum) -> TrainingBrief.builder()
         .id(UUID.fromString(rs.getString("id")))
-        .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
+        .dayOfWeek(DayOfWeek.of(rs.getInt("day_of_week")))
         .startTime(rs.getTime("start_time").toLocalTime())
         .endTime(rs.getTime("end_time").toLocalTime())
         .maxPlayers(rs.getInt("max_players"))
@@ -32,7 +33,7 @@ class TrainingRepository {
         .clubId(UUID.fromString(rs.getString("club_id")))
         .clubName(rs.getString("club_name"))
         .slotDate(rs.getDate("slot_date").toLocalDate())
-        .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
+        .dayOfWeek(DayOfWeek.of(rs.getInt("day_of_week")))
         .startTime(rs.getTime("start_time").toLocalTime())
         .endTime(rs.getTime("end_time").toLocalTime())
         .enrolledCount(rs.getInt("enrolled_count"))
@@ -64,7 +65,7 @@ class TrainingRepository {
             (rs, rowNum) -> Training.builder()
                 .id(UUID.fromString(rs.getString("id")))
                 .clubId(UUID.fromString(rs.getString("club_id")))
-                .dayOfWeek(java.time.DayOfWeek.of(rs.getInt("day_of_week")))
+                .dayOfWeek(DayOfWeek.of(rs.getInt("day_of_week")))
                 .startTime(rs.getTime("start_time").toLocalTime())
                 .endTime(rs.getTime("end_time").toLocalTime())
                 .maxPlayers(rs.getInt("max_players"))
