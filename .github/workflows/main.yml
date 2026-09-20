@@ -19,7 +19,7 @@ jobs:
 
       - name: Build Backend
         run: |
-          ./mvnw -B -q clean package
+          mvn -B -q clean package
         working-directory: ./
 
       - name: Set variables
