@@ -63,6 +63,7 @@ class TrainingService {
             .orElseThrow(() -> new NoSuchElementException("Training not found: " + trainingId));
         accessManagement.requireOwner(training.getClubId(), userId);
         requireValidTimeRange(request.getStartTime(), request.getEndTime());
+        boolean dayChanged = training.getDayOfWeek() != request.getDayOfWeek();
         trainingRepository.update(
             trainingId,
             request.getDayOfWeek().getValue(),
@@ -71,6 +72,9 @@ class TrainingService {
             request.getMaxPlayers(),
             request.getFeatures()
         );
+        if (dayChanged) {
+            trainingRepository.deleteFutureSlots(trainingId);
+        }
         return TrainingBrief.builder()
             .id(trainingId)
             .dayOfWeek(request.getDayOfWeek())

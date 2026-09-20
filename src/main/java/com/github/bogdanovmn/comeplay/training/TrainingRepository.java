@@ -137,6 +137,33 @@ class TrainingRepository {
         );
     }
 
+    void deleteFutureSlots(UUID trainingId) {
+        jdbc.update("""
+                DELETE FROM training_comment
+                WHERE slot_id IN (
+                    SELECT id FROM training_slot
+                    WHERE training_id = :trainingId AND slot_date >= CURRENT_DATE
+                )
+                """,
+            Map.of("trainingId", trainingId)
+        );
+        jdbc.update("""
+                DELETE FROM training_enrollment
+                WHERE slot_id IN (
+                    SELECT id FROM training_slot
+                    WHERE training_id = :trainingId AND slot_date >= CURRENT_DATE
+                )
+                """,
+            Map.of("trainingId", trainingId)
+        );
+        jdbc.update("""
+                DELETE FROM training_slot
+                WHERE training_id = :trainingId AND slot_date >= CURRENT_DATE
+                """,
+            Map.of("trainingId", trainingId)
+        );
+    }
+
     void update(UUID trainingId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers, String features) {
         jdbc.update("""
                 UPDATE training
