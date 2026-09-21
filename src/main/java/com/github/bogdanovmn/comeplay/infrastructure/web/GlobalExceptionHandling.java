@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.ServletRequestBindingException;
@@ -53,7 +54,8 @@ public class GlobalExceptionHandling {
     @ExceptionHandler(value = {
         BindException.class,
         IllegalArgumentException.class,
-        ServletRequestBindingException.class
+        ServletRequestBindingException.class,
+        HttpMessageNotReadableException.class
     })
     public ResponseEntity<ExceptionResponse> badRequest(HttpServletRequest req, Exception ex) throws Exception {
         return exceptionResponse(req, ex, HttpStatus.BAD_REQUEST.value());

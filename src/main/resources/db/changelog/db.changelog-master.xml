@@ -7,5 +7,6 @@
 
     <include file="db/changelog/001-initial.xml"/>
     <include file="db/changelog/002-features-and-slot-overrides.xml"/>
+    <include file="db/changelog/003-player-skill.xml"/>
 
 </databaseChangeLog>

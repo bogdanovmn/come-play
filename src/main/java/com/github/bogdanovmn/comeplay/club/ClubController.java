@@ -99,6 +99,21 @@ class ClubController {
         return clubService.listMembers(clubId, userId);
     }
 
+    @PutMapping("/{clubId}/members/{memberId}/skill")
+    void setMemberSkill(
+        @PathVariable UUID clubId,
+        @PathVariable UUID memberId,
+        @Valid @RequestBody SetMemberSkillRequest request,
+        @CurrentUserId UUID userId
+    ) {
+        clubService.setMemberSkill(clubId, memberId, request.getSkill(), userId);
+    }
+
+    @DeleteMapping("/{clubId}/members/{memberId}/skill")
+    void clearMemberSkill(@PathVariable UUID clubId, @PathVariable UUID memberId, @CurrentUserId UUID userId) {
+        clubService.clearMemberSkill(clubId, memberId, userId);
+    }
+
     @DeleteMapping("/{clubId}/members")
     void leave(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
         clubService.leave(clubId, userId);

@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.club;
 
+import com.github.bogdanovmn.comeplay.common.SkillLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -167,9 +168,15 @@ class ClubRepository {
 
     List<ClubMember> listMembers(UUID clubId) {
         return jdbc.query("""
-                SELECT u.id, u.display_name AS name
+                SELECT u.id, u.display_name AS name,
+                    c.owner_id = u.id AS is_owner,
+                    cps.skill IS NOT NULL AS overridden,
+                    COALESCE(cps.skill, ps.skill) AS skill
                 FROM club_member cm
                 JOIN app_user u ON u.id = cm.user_id
+                JOIN club c ON c.id = cm.club_id
+                LEFT JOIN club_player_skill cps ON cps.club_id = cm.club_id AND cps.user_id = u.id
+                LEFT JOIN player_skill ps ON ps.user_id = u.id AND ps.sport_type_id = c.sport_type_id
                 WHERE cm.club_id = :clubId
                 ORDER BY u.display_name
                 """,
@@ -177,6 +184,9 @@ class ClubRepository {
                 (rs, rowNum) -> ClubMember.builder()
                         .id(UUID.fromString(rs.getString("id")))
                         .name(rs.getString("name"))
+                        .skill(rs.getString("skill") != null ? SkillLevel.valueOf(rs.getString("skill")) : null)
+                        .owner(rs.getBoolean("is_owner"))
+                        .overridden(rs.getBoolean("overridden"))
                         .build()
         );
     }

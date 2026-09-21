@@ -1,5 +1,7 @@
 package com.github.bogdanovmn.comeplay.club;
 
+import com.github.bogdanovmn.comeplay.common.PlayerSkillRepository;
+import com.github.bogdanovmn.comeplay.common.SkillLevel;
 import com.github.bogdanovmn.comeplay.security.AccessManagement;
 import com.github.bogdanovmn.comeplay.sport.SportType;
 import com.github.bogdanovmn.comeplay.sport.SportTypeService;
@@ -19,6 +21,7 @@ class ClubService {
     private final ClubRepository clubRepository;
     private final AccessManagement accessManagement;
     private final SportTypeService sportTypeService;
+    private final PlayerSkillRepository playerSkillRepository;
 
     @Transactional(readOnly = true)
     public List<ClubBrief> listByOwner(UUID userId) {
@@ -125,5 +128,19 @@ class ClubService {
         accessManagement.requireMember(clubId, userId);
         accessManagement.requireNotOwner(clubId, userId);
         clubRepository.removeMember(clubId, userId);
+    }
+
+    @Transactional
+    public void setMemberSkill(UUID clubId, UUID memberId, SkillLevel skill, UUID userId) {
+        accessManagement.requireOwner(clubId, userId);
+        accessManagement.requireMember(clubId, memberId);
+        playerSkillRepository.setClubOverride(clubId, memberId, skill);
+    }
+
+    @Transactional
+    public void clearMemberSkill(UUID clubId, UUID memberId, UUID userId) {
+        accessManagement.requireOwner(clubId, userId);
+        accessManagement.requireMember(clubId, memberId);
+        playerSkillRepository.deleteClubOverride(clubId, memberId);
     }
 }

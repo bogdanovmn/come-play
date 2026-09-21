@@ -1,17 +1,11 @@
 package com.github.bogdanovmn.comeplay.club;
 
 import com.github.bogdanovmn.comeplay.common.SkillLevel;
-import lombok.Builder;
+import jakarta.validation.constraints.NotNull;
 import lombok.Value;
 
-import java.util.UUID;
-
 @Value
-@Builder
-class ClubMember {
-    UUID id;
-    String name;
+class SetMemberSkillRequest {
+    @NotNull
     SkillLevel skill;
-    boolean owner;
-    boolean overridden;
 }

@@ -1,5 +1,9 @@
 package com.github.bogdanovmn.comeplay.user;
 
+import com.github.bogdanovmn.comeplay.common.PlayerSkill;
+import com.github.bogdanovmn.comeplay.common.PlayerSkillRepository;
+import com.github.bogdanovmn.comeplay.common.SkillLevel;
+import com.github.bogdanovmn.comeplay.sport.SportTypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -17,6 +21,8 @@ import java.util.UUID;
 class UserService {
 
     private final UserRepository userRepository;
+    private final PlayerSkillRepository playerSkillRepository;
+    private final SportTypeService sportTypeService;
 
     @Transactional
     public UserProfile getOrCreate(UUID userId) {
@@ -31,8 +37,17 @@ class UserService {
 
     @Transactional
     @CacheEvict(value = "userProfile", key = "#userId")
-    public void updateDisplayName(UUID userId, String displayName) {
-        userRepository.updateDisplayName(userId, displayName);
+    public void updateSettings(UUID userId, SaveProfileRequest request) {
+        userRepository.updateDisplayName(userId, request.getDisplayName());
+        for (SportSkillUpdate update : request.getSportSkills()) {
+            sportTypeService.requireById(update.getSportTypeId());
+            SkillLevel skill = update.getSkill();
+            if (skill == null) {
+                playerSkillRepository.deleteUserSkill(userId, update.getSportTypeId());
+            } else {
+                playerSkillRepository.setUserSkill(userId, update.getSportTypeId(), skill);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -51,6 +66,11 @@ class UserService {
     @Transactional
     public void removeFriend(UUID userId, UUID friendId) {
         userRepository.deleteFriend(userId, friendId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PlayerSkill> listSkills(UUID userId) {
+        return playerSkillRepository.userSkills(userId);
     }
 
     private String jwtUserName() {

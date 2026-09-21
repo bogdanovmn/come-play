@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="003-player-skill" author="come-play">
+        <sql>
+            CREATE TABLE player_skill (
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                sport_type_id int NOT NULL REFERENCES sport_type(id),
+                skill varchar(20) NOT NULL,
+                PRIMARY KEY (user_id, sport_type_id)
+            );
+        </sql>
+
+        <sql>
+            CREATE TABLE club_player_skill (
+                club_id uuid NOT NULL REFERENCES club(id),
+                user_id uuid NOT NULL REFERENCES app_user(id),
+                skill varchar(20) NOT NULL,
+                PRIMARY KEY (club_id, user_id)
+            );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

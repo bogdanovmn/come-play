@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.training;
 
+import com.github.bogdanovmn.comeplay.common.SkillLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -289,10 +290,17 @@ class TrainingRepository {
         return jdbc.query("""
                 SELECT e.slot_id, e.user_id, e.friend_id,
                     COALESCE(u.display_name, f.name) AS name,
-                    e.enrolled_by, e.enrolled_at, e.coming_later
+                    e.enrolled_by, e.enrolled_at, e.coming_later,
+                    COALESCE(c.owner_id = e.user_id, false) AS is_owner,
+                    COALESCE(cps.skill, ps.skill) AS skill
                 FROM training_enrollment e
                 LEFT JOIN app_user u ON u.id = e.user_id
                 LEFT JOIN friend f ON f.id = e.friend_id
+                LEFT JOIN training_slot ts ON ts.id = e.slot_id
+                LEFT JOIN training t ON t.id = ts.training_id
+                LEFT JOIN club c ON c.id = t.club_id
+                LEFT JOIN club_player_skill cps ON cps.club_id = c.id AND cps.user_id = e.user_id
+                LEFT JOIN player_skill ps ON ps.user_id = e.user_id AND ps.sport_type_id = c.sport_type_id
                 WHERE e.slot_id = :slotId
                 ORDER BY e.enrolled_at
                 """,
@@ -305,6 +313,8 @@ class TrainingRepository {
                 .enrolledBy(UUID.fromString(rs.getString("enrolled_by")))
                 .enrolledAt(rs.getTimestamp("enrolled_at").toInstant())
                 .comingLater(rs.getBoolean("coming_later"))
+                .skill(rs.getString("skill") != null ? SkillLevel.valueOf(rs.getString("skill")) : null)
+                .owner(rs.getBoolean("is_owner"))
                 .build()
         );
     }
