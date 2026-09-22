@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.training;
 
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import com.github.bogdanovmn.comeplay.security.AccessManagement;
 import com.github.bogdanovmn.comeplay.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ class TrainingService {
 
     @Transactional(readOnly = true)
     public TrainingSlot getSlot(UUID slotId, UUID userId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         requireClubOpenForMember(slot.getClubId(), userId);
         return slot;
@@ -100,7 +101,7 @@ class TrainingService {
         if (!trainingRepository.clubClosed(clubId)) {
             trainingRepository.ensureSlots(clubId, from, to);
         }
-        return trainingRepository.listSlots(clubId, from, to);
+        return trainingRepository.listSlots(clubId, from, to, userId);
     }
 
     @Transactional(readOnly = true)
@@ -108,12 +109,12 @@ class TrainingService {
         Training training = trainingRepository.findById(trainingId)
             .orElseThrow(() -> new NoSuchElementException("Training not found: " + trainingId));
         requireClubOpenForMember(training.getClubId(), userId);
-        return trainingRepository.listSlotsByTraining(trainingId);
+        return trainingRepository.listSlotsByTraining(trainingId, userId);
     }
 
     @Transactional
     public void enroll(UUID slotId, UUID userId, UUID enrolledBy) {
-        TrainingSlot slot = requireSlotAvailable(slotId);
+        TrainingSlot slot = requireSlotAvailable(slotId, enrolledBy);
         Training training = requireTraining(slot.getTrainingId());
         requireClubActive(training.getClubId());
         accessManagement.requireMember(training.getClubId(), userId);
@@ -124,7 +125,7 @@ class TrainingService {
 
     @Transactional
     public void enrollFriend(UUID slotId, UUID friendId, UUID enrolledBy) {
-        TrainingSlot slot = requireSlotAvailable(slotId);
+        TrainingSlot slot = requireSlotAvailable(slotId, enrolledBy);
         requireFriend(friendId, enrolledBy);
         Training training = requireTraining(slot.getTrainingId());
         requireClubActive(training.getClubId());
@@ -146,7 +147,7 @@ class TrainingService {
 
     @Transactional
     public void setComingLater(UUID slotId, boolean comingLater, UUID userId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         Training training = requireTraining(slot.getTrainingId());
         accessManagement.requireMember(training.getClubId(), userId);
@@ -155,7 +156,7 @@ class TrainingService {
 
     @Transactional(readOnly = true)
     public List<Enrollment> listEnrollments(UUID slotId, UUID userId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         requireClubOpenForMember(slot.getClubId(), userId);
         return trainingRepository.listEnrollments(slotId);
@@ -163,7 +164,7 @@ class TrainingService {
 
     @Transactional(readOnly = true)
     public List<Comment> listComments(UUID slotId, UUID userId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         requireClubOpenForMember(slot.getClubId(), userId);
         return trainingRepository.listComments(slotId);
@@ -171,24 +172,18 @@ class TrainingService {
 
     @Transactional
     public Comment createComment(UUID slotId, String text, UUID userId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         requireClubOpenForMember(slot.getClubId(), userId);
         UUID commentId = trainingRepository.createComment(slotId, userId, text);
-        String authorName = trainingRepository.findUserName(userId);
-        return Comment.builder()
-            .id(commentId)
-            .slotId(slotId)
-            .userId(userId)
-            .authorName(authorName)
-            .text(text)
-        .build();
+        return trainingRepository.findComment(commentId)
+            .orElseThrow(() -> new NoSuchElementException("Comment not found: " + commentId));
     }
 
     @Transactional
     public TrainingSlot updateSlot(UUID slotId, UpdateSlotRequest request, UUID userId) {
         requireValidTimeRange(request.getStartTime(), request.getEndTime());
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         Training training = requireTraining(slot.getTrainingId());
         accessManagement.requireOwner(training.getClubId(), userId);
@@ -204,17 +199,36 @@ class TrainingService {
             request.getMaxPlayers(),
             request.getFeatures()
         );
-        return trainingRepository.findSlotById(slotId).orElseThrow();
+        return trainingRepository.findSlotById(slotId, userId).orElseThrow();
     }
 
     @Transactional
     public TrainingSlot clearSlotOverrides(UUID slotId, UUID userId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         Training training = requireTraining(slot.getTrainingId());
         accessManagement.requireOwner(training.getClubId(), userId);
         trainingRepository.clearSlotParams(slotId);
-        return trainingRepository.findSlotById(slotId).orElseThrow();
+        return trainingRepository.findSlotById(slotId, userId).orElseThrow();
+    }
+
+    @Transactional
+    public TrainingSlot cancelSlot(UUID slotId, UUID userId) {
+        return setSlotCancelled(slotId, true, userId);
+    }
+
+    @Transactional
+    public TrainingSlot restoreSlot(UUID slotId, UUID userId) {
+        return setSlotCancelled(slotId, false, userId);
+    }
+
+    private TrainingSlot setSlotCancelled(UUID slotId, boolean cancelled, UUID userId) {
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, userId)
+            .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
+        Training training = requireTraining(slot.getTrainingId());
+        accessManagement.requireOwner(training.getClubId(), userId);
+        trainingRepository.setSlotCancelled(slotId, cancelled);
+        return trainingRepository.findSlotById(slotId, userId).orElseThrow();
     }
 
     private void requireValidTimeRange(LocalTime startTime, LocalTime endTime) {
@@ -236,9 +250,12 @@ class TrainingService {
         }
     }
 
-    private TrainingSlot requireSlotAvailable(UUID slotId) {
-        TrainingSlot slot = trainingRepository.findSlotById(slotId)
+    private TrainingSlot requireSlotAvailable(UUID slotId, UUID viewerId) {
+        TrainingSlot slot = trainingRepository.findSlotById(slotId, viewerId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
+        if (slot.isCancelled()) {
+            throw new IllegalArgumentException("Slot is cancelled: " + slotId);
+        }
         if (slot.getEnrolledCount() >= slot.getMaxPlayers()) {
             throw new IllegalArgumentException("Slot is full: " + slotId);
         }

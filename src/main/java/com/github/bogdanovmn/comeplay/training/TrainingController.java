@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.training;
 
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import com.github.bogdanovmn.comeplay.infrastructure.security.CurrentUserId;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;

@@ -1,6 +1,8 @@
 package com.github.bogdanovmn.comeplay.history;
 
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -27,6 +29,22 @@ class HistoryRepository {
                         "slotDate", slotDate,
                         "sportType", sportType
                 )
+        );
+    }
+
+    List<TrainingSlot> pastTrainings(UUID clubId, LocalDate from, LocalDate to, UUID viewerId) {
+        return jdbc.query("""
+                %s
+                WHERE t.club_id = :clubId
+                    AND ts.slot_date >= :from AND ts.slot_date <= :to
+                ORDER BY ts.slot_date DESC, COALESCE(ts.start_time, t.start_time) DESC
+                """.formatted(TrainingSlot.SELECT),
+                new MapSqlParameterSource()
+                        .addValue("clubId", clubId)
+                        .addValue("from", from)
+                        .addValue("to", to)
+                        .addValue("viewerId", viewerId),
+                TrainingSlot.ROW_MAPPER
         );
     }
 

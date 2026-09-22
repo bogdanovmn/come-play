@@ -1,6 +1,7 @@
 package com.github.bogdanovmn.comeplay.training;
 
 import com.github.bogdanovmn.comeplay.common.SkillLevel;
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -9,8 +10,11 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Time;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,37 +33,9 @@ class TrainingRepository {
         .features(rs.getString("features"))
     .build();
 
-    private static final RowMapper<TrainingSlot> SLOT_ROW_MAPPER = (rs, rowNum) -> TrainingSlot.builder()
-        .id(UUID.fromString(rs.getString("id")))
-        .trainingId(UUID.fromString(rs.getString("training_id")))
-        .clubId(UUID.fromString(rs.getString("club_id")))
-        .clubName(rs.getString("club_name"))
-        .slotDate(rs.getDate("slot_date").toLocalDate())
-        .dayOfWeek(DayOfWeek.of(rs.getInt("day_of_week")))
-        .startTime(rs.getTime("start_time").toLocalTime())
-        .endTime(rs.getTime("end_time").toLocalTime())
-        .enrolledCount(rs.getInt("enrolled_count"))
-        .maxPlayers(rs.getInt("max_players"))
-        .commentsCount(rs.getInt("comments_count"))
-        .features(rs.getString("features"))
-        .overridden(rs.getBoolean("overridden"))
-        .build();
-
-    private static final String SLOT_SELECT = """
-            SELECT ts.id, ts.training_id, ts.slot_date,
-                (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
-                (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
-                t.day_of_week,
-                COALESCE(ts.start_time, t.start_time) AS start_time,
-                COALESCE(ts.end_time, t.end_time) AS end_time,
-                COALESCE(ts.max_players, t.max_players) AS max_players,
-                COALESCE(ts.features, t.features) AS features,
-                (ts.start_time IS NOT NULL OR ts.end_time IS NOT NULL OR ts.max_players IS NOT NULL OR ts.features IS NOT NULL) AS overridden,
-                c.id AS club_id, c.name AS club_name
-            FROM training_slot ts
-            JOIN training t ON t.id = ts.training_id
-            JOIN club c ON c.id = t.club_id
-            """;
+    private static Instant wallClockToInstant(LocalDateTime wallClock) {
+        return wallClock.atZone(ZoneId.systemDefault()).toInstant();
+    }
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -185,36 +161,44 @@ class TrainingRepository {
         );
     }
 
-    List<TrainingSlot> listSlots(UUID clubId, LocalDate from, LocalDate to) {
+    List<TrainingSlot> listSlots(UUID clubId, LocalDate from, LocalDate to, UUID viewerId) {
         return jdbc.query("""
                 %s
                 WHERE t.club_id = :clubId
                     AND ts.slot_date >= :from AND ts.slot_date <= :to
                 ORDER BY ts.slot_date, COALESCE(ts.start_time, t.start_time)
-                """.formatted(SLOT_SELECT),
-            Map.of("clubId", clubId, "from", from, "to", to),
-            SLOT_ROW_MAPPER
+                """.formatted(TrainingSlot.SELECT),
+            new MapSqlParameterSource()
+                .addValue("clubId", clubId)
+                .addValue("from", from)
+                .addValue("to", to)
+                .addValue("viewerId", viewerId),
+            TrainingSlot.ROW_MAPPER
         );
     }
 
-    List<TrainingSlot> listSlotsByTraining(UUID trainingId) {
+    List<TrainingSlot> listSlotsByTraining(UUID trainingId, UUID viewerId) {
         return jdbc.query("""
                 %s
                 WHERE ts.training_id = :trainingId
                 ORDER BY ts.slot_date
-                """.formatted(SLOT_SELECT),
-            Map.of("trainingId", trainingId),
-            SLOT_ROW_MAPPER
+                """.formatted(TrainingSlot.SELECT),
+            new MapSqlParameterSource()
+                .addValue("trainingId", trainingId)
+                .addValue("viewerId", viewerId),
+            TrainingSlot.ROW_MAPPER
         );
     }
 
-    Optional<TrainingSlot> findSlotById(UUID slotId) {
+    Optional<TrainingSlot> findSlotById(UUID slotId, UUID viewerId) {
         var result = jdbc.query("""
                 %s
                 WHERE ts.id = :slotId
-                """.formatted(SLOT_SELECT),
-            Map.of("slotId", slotId),
-            SLOT_ROW_MAPPER
+                """.formatted(TrainingSlot.SELECT),
+            new MapSqlParameterSource()
+                .addValue("slotId", slotId)
+                .addValue("viewerId", viewerId),
+            TrainingSlot.ROW_MAPPER
         );
         return result.stream().findFirst();
     }
@@ -311,13 +295,22 @@ class TrainingRepository {
                 .friendId(rs.getString("friend_id") != null ? UUID.fromString(rs.getString("friend_id")) : null)
                 .name(rs.getString("name"))
                 .enrolledBy(UUID.fromString(rs.getString("enrolled_by")))
-                .enrolledAt(rs.getTimestamp("enrolled_at").toInstant())
+                .enrolledAt(wallClockToInstant(rs.getObject("enrolled_at", LocalDateTime.class)))
                 .comingLater(rs.getBoolean("coming_later"))
                 .skill(rs.getString("skill") != null ? SkillLevel.valueOf(rs.getString("skill")) : null)
                 .owner(rs.getBoolean("is_owner"))
                 .build()
         );
     }
+
+    private static final RowMapper<Comment> COMMENT_ROW_MAPPER = (rs, rowNum) -> Comment.builder()
+            .id(UUID.fromString(rs.getString("id")))
+            .slotId(UUID.fromString(rs.getString("slot_id")))
+            .userId(UUID.fromString(rs.getString("user_id")))
+            .authorName(rs.getString("author_name"))
+            .text(rs.getString("text"))
+            .createdAt(wallClockToInstant(rs.getObject("created_at", LocalDateTime.class)))
+        .build();
 
     List<Comment> listComments(UUID slotId) {
         return jdbc.query("""
@@ -329,15 +322,21 @@ class TrainingRepository {
                 ORDER BY c.created_at
                 """,
             Map.of("slotId", slotId),
-            (rs, rowNum) -> Comment.builder()
-                .id(UUID.fromString(rs.getString("id")))
-                .slotId(UUID.fromString(rs.getString("slot_id")))
-                .userId(UUID.fromString(rs.getString("user_id")))
-                .authorName(rs.getString("author_name"))
-                .text(rs.getString("text"))
-                .createdAt(rs.getTimestamp("created_at").toInstant())
-            .build()
+            COMMENT_ROW_MAPPER
         );
+    }
+
+    Optional<Comment> findComment(UUID commentId) {
+        return jdbc.query("""
+                SELECT c.id, c.slot_id, c.user_id, COALESCE(u.display_name, 'Игрок') AS author_name,
+                    c.text, c.created_at
+                FROM training_comment c
+                LEFT JOIN app_user u ON u.id = c.user_id
+                WHERE c.id = :commentId
+                """,
+            Map.of("commentId", commentId),
+            COMMENT_ROW_MAPPER
+        ).stream().findFirst();
     }
 
     String findUserName(UUID userId) {
@@ -404,6 +403,16 @@ class TrainingRepository {
                 WHERE id = :slotId
                 """,
             Map.of("slotId", slotId)
+        );
+    }
+
+    void setSlotCancelled(UUID slotId, boolean cancelled) {
+        jdbc.update("""
+                UPDATE training_slot
+                SET cancelled = :cancelled
+                WHERE id = :slotId
+                """,
+            Map.of("slotId", slotId, "cancelled", cancelled)
         );
     }
 

@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.history;
 
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import com.github.bogdanovmn.comeplay.infrastructure.security.CurrentUserId;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,15 @@ class HistoryController {
 
     HistoryController(HistoryService historyService) {
         this.historyService = historyService;
+    }
+
+    @GetMapping
+    List<TrainingSlot> pastTrainings(
+            @PathVariable UUID clubId,
+            @RequestParam(defaultValue = "30") int days,
+            @CurrentUserId UUID userId
+    ) {
+        return historyService.pastTrainings(clubId, days, userId);
     }
 
     @GetMapping("/by-day")

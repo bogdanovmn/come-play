@@ -5,9 +5,14 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <include file="db/changelog/001-initial.xml"/>
-    <include file="db/changelog/002-features-and-slot-overrides.xml"/>
-    <include file="db/changelog/003-player-skill.xml"/>
-    <include file="db/changelog/004-training-cancelled.xml"/>
+    <changeSet id="004-training-cancelled" author="come-play">
+        <sql>
+            ALTER TABLE training_slot ADD COLUMN cancelled boolean NOT NULL DEFAULT false;
+        </sql>
+
+        <sql>
+            CREATE INDEX idx_training_slot_date ON training_slot(slot_date);
+        </sql>
+    </changeSet>
 
 </databaseChangeLog>

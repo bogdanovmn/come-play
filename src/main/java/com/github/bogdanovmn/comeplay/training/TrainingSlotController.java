@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.training;
 
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import com.github.bogdanovmn.comeplay.infrastructure.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -98,5 +99,15 @@ class TrainingSlotController {
     @DeleteMapping("/{slotId}/params")
     TrainingSlot clearParams(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
         return trainingService.clearSlotOverrides(slotId, userId);
+    }
+
+    @PutMapping("/{slotId}/cancel")
+    TrainingSlot cancel(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
+        return trainingService.cancelSlot(slotId, userId);
+    }
+
+    @DeleteMapping("/{slotId}/cancel")
+    TrainingSlot restore(@PathVariable UUID slotId, @CurrentUserId UUID userId) {
+        return trainingService.restoreSlot(slotId, userId);
     }
 }

@@ -1,14 +1,22 @@
 package com.github.bogdanovmn.comeplay.training;
 
+import com.github.bogdanovmn.comeplay.common.TrainingSlot;
 import com.github.bogdanovmn.comeplay.security.AccessManagement;
 import com.github.bogdanovmn.comeplay.user.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -22,6 +30,7 @@ class TrainingServiceTest {
     private final TrainingService trainingService = new TrainingService(trainingRepository, userRepository, accessManagement);
 
     private final UUID trainingId = UUID.randomUUID();
+    private final UUID slotId = UUID.randomUUID();
     private final UUID userId = UUID.randomUUID();
 
     private Training training(DayOfWeek dayOfWeek) {
@@ -33,6 +42,26 @@ class TrainingServiceTest {
             .endTime(LocalTime.of(20, 0))
             .maxPlayers(10)
             .features(null)
+            .build();
+    }
+
+    private TrainingSlot slot(boolean cancelled) {
+        return TrainingSlot.builder()
+            .id(slotId)
+            .trainingId(trainingId)
+            .clubId(UUID.randomUUID())
+            .clubName("Клуб")
+            .slotDate(LocalDate.now())
+            .dayOfWeek(DayOfWeek.MONDAY)
+            .startTime(LocalTime.of(18, 0))
+            .endTime(LocalTime.of(20, 0))
+            .enrolledCount(0)
+            .maxPlayers(10)
+            .commentsCount(0)
+            .features(null)
+            .overridden(false)
+            .cancelled(cancelled)
+            .enrolled(false)
             .build();
     }
 
@@ -62,5 +91,46 @@ class TrainingServiceTest {
         trainingService.update(trainingId, request(DayOfWeek.MONDAY), userId);
 
         verify(trainingRepository, never()).deleteFutureSlots(trainingId);
+    }
+
+    @Test
+    void enrollIsRejectedOnCancelledSlot() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(true)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+
+        assertThrows(IllegalArgumentException.class, () -> trainingService.enroll(slotId, userId, userId));
+
+        verify(trainingRepository, never()).enroll(any(), any(), any(), any());
+    }
+
+    @Test
+    void cancelSlotSetsCancelledForOwner() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(false)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+
+        trainingService.cancelSlot(slotId, userId);
+
+        verify(trainingRepository).setSlotCancelled(slotId, true);
+    }
+
+    @Test
+    void restoreSlotRemovesCancelledFlagForOwner() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(true)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+
+        trainingService.restoreSlot(slotId, userId);
+
+        verify(trainingRepository).setSlotCancelled(slotId, false);
+    }
+
+    @Test
+    void cancelSlotRejectedForNonOwner() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(false)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+        doThrow(new AccessDeniedException("no")).when(accessManagement).requireOwner(any(), any());
+
+        assertThrows(AccessDeniedException.class, () -> trainingService.cancelSlot(slotId, userId));
+
+        verify(trainingRepository, never()).setSlotCancelled(any(), anyBoolean());
     }
 }
