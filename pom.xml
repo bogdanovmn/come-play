@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.bogdanovmn.comeplay</groupId>
-    <artifactId>come-play</artifactId>
+    <artifactId>comeplay</artifactId>
     <version>0.0.1</version>
-    <name>come-play</name>
+    <name>comeplay</name>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
