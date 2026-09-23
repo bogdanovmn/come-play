@@ -5,10 +5,10 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <include file="db/changelog/001-initial.xml"/>
-    <include file="db/changelog/002-features-and-slot-overrides.xml"/>
-    <include file="db/changelog/003-player-skill.xml"/>
-    <include file="db/changelog/004-training-cancelled.xml"/>
-    <include file="db/changelog/005-enrollment-waitlist.xml"/>
+    <changeSet id="005-enrollment-waitlist" author="come-play">
+        <sql>
+            ALTER TABLE training_enrollment ADD COLUMN waitlist boolean NOT NULL DEFAULT false;
+        </sql>
+    </changeSet>
 
 </databaseChangeLog>

@@ -76,6 +76,8 @@ class TrainingService {
         if (dayChanged) {
             trainingRepository.deleteFutureSlots(trainingId);
         }
+        trainingRepository.listFutureSlotIds(trainingId)
+            .forEach(trainingRepository::promoteFromWaitlist);
         return TrainingBrief.builder()
             .id(trainingId)
             .dayOfWeek(request.getDayOfWeek())
@@ -114,35 +116,37 @@ class TrainingService {
 
     @Transactional
     public void enroll(UUID slotId, UUID userId, UUID enrolledBy) {
-        TrainingSlot slot = requireSlotAvailable(slotId, enrolledBy);
+        TrainingSlot slot = requireSlotEnrollable(slotId, enrolledBy);
         Training training = requireTraining(slot.getTrainingId());
         requireClubActive(training.getClubId());
         accessManagement.requireMember(training.getClubId(), userId);
         accessManagement.requireMember(training.getClubId(), enrolledBy);
 
-        trainingRepository.enroll(slotId, userId, null, enrolledBy);
+        trainingRepository.enroll(slotId, userId, null, enrolledBy, slot.getEnrolledCount() >= slot.getMaxPlayers());
     }
 
     @Transactional
     public void enrollFriend(UUID slotId, UUID friendId, UUID enrolledBy) {
-        TrainingSlot slot = requireSlotAvailable(slotId, enrolledBy);
+        TrainingSlot slot = requireSlotEnrollable(slotId, enrolledBy);
         requireFriend(friendId, enrolledBy);
         Training training = requireTraining(slot.getTrainingId());
         requireClubActive(training.getClubId());
         accessManagement.requireMember(training.getClubId(), enrolledBy);
 
-        trainingRepository.enroll(slotId, null, friendId, enrolledBy);
+        trainingRepository.enroll(slotId, null, friendId, enrolledBy, slot.getEnrolledCount() >= slot.getMaxPlayers());
     }
 
     @Transactional
     public void unenroll(UUID slotId, UUID userId) {
         trainingRepository.unenroll(slotId, userId, null);
+        trainingRepository.promoteFromWaitlist(slotId);
     }
 
     @Transactional
     public void unenrollFriend(UUID slotId, UUID friendId, UUID userId) {
         requireFriend(friendId, userId);
         trainingRepository.unenroll(slotId, null, friendId);
+        trainingRepository.promoteFromWaitlist(slotId);
     }
 
     @Transactional
@@ -199,6 +203,7 @@ class TrainingService {
             request.getMaxPlayers(),
             request.getFeatures()
         );
+        trainingRepository.promoteFromWaitlist(slotId);
         return trainingRepository.findSlotById(slotId, userId).orElseThrow();
     }
 
@@ -250,14 +255,11 @@ class TrainingService {
         }
     }
 
-    private TrainingSlot requireSlotAvailable(UUID slotId, UUID viewerId) {
+    private TrainingSlot requireSlotEnrollable(UUID slotId, UUID viewerId) {
         TrainingSlot slot = trainingRepository.findSlotById(slotId, viewerId)
             .orElseThrow(() -> new NoSuchElementException("Slot not found: " + slotId));
         if (slot.isCancelled()) {
             throw new IllegalArgumentException("Slot is cancelled: " + slotId);
-        }
-        if (slot.getEnrolledCount() >= slot.getMaxPlayers()) {
-            throw new IllegalArgumentException("Slot is full: " + slotId);
         }
         return slot;
     }

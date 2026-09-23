@@ -19,4 +19,5 @@ class Enrollment {
     boolean comingLater;
     SkillLevel skill;
     boolean owner;
+    boolean waitlist;
 }

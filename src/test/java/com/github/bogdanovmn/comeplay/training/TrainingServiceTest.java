@@ -46,6 +46,10 @@ class TrainingServiceTest {
     }
 
     private TrainingSlot slot(boolean cancelled) {
+        return slot(cancelled, 0, 10);
+    }
+
+    private TrainingSlot slot(boolean cancelled, int enrolledCount, int maxPlayers) {
         return TrainingSlot.builder()
             .id(slotId)
             .trainingId(trainingId)
@@ -55,8 +59,9 @@ class TrainingServiceTest {
             .dayOfWeek(DayOfWeek.MONDAY)
             .startTime(LocalTime.of(18, 0))
             .endTime(LocalTime.of(20, 0))
-            .enrolledCount(0)
-            .maxPlayers(10)
+            .enrolledCount(enrolledCount)
+            .waitlistCount(0)
+            .maxPlayers(maxPlayers)
             .commentsCount(0)
             .features(null)
             .overridden(false)
@@ -100,7 +105,47 @@ class TrainingServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> trainingService.enroll(slotId, userId, userId));
 
-        verify(trainingRepository, never()).enroll(any(), any(), any(), any());
+        verify(trainingRepository, never()).enroll(any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void enrollGoesToWaitlistWhenSlotIsFull() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(false, 10, 10)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+
+        trainingService.enroll(slotId, userId, userId);
+
+        verify(trainingRepository).enroll(slotId, userId, null, userId, true);
+    }
+
+    @Test
+    void enrollIsNotWaitlistWhenSlotHasFreePlaces() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(false, 8, 10)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+
+        trainingService.enroll(slotId, userId, userId);
+
+        verify(trainingRepository).enroll(slotId, userId, null, userId, false);
+    }
+
+    @Test
+    void unenrollPromotesFromWaitlist() {
+        trainingService.unenroll(slotId, userId);
+
+        verify(trainingRepository).unenroll(slotId, userId, null);
+        verify(trainingRepository).promoteFromWaitlist(slotId);
+    }
+
+    @Test
+    void updateSlotPromotesFromWaitlistWhenMaxPlayersIncreased() {
+        when(trainingRepository.findSlotById(eq(slotId), any())).thenReturn(Optional.of(slot(false, 10, 10)));
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY)));
+
+        trainingService.updateSlot(slotId, new UpdateSlotRequest(
+            LocalTime.of(18, 0), LocalTime.of(20, 0), 20, null
+        ), userId);
+
+        verify(trainingRepository).promoteFromWaitlist(slotId);
     }
 
     @Test

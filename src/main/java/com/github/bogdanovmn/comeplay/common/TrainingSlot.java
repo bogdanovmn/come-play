@@ -21,6 +21,7 @@ public class TrainingSlot {
     LocalTime startTime;
     LocalTime endTime;
     int enrolledCount;
+    int waitlistCount;
     int maxPlayers;
     int commentsCount;
     String features;
@@ -30,7 +31,8 @@ public class TrainingSlot {
 
     public static final String SELECT = """
             SELECT ts.id, ts.training_id, ts.slot_date, ts.cancelled,
-                (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id) AS enrolled_count,
+                (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id AND te.waitlist = false) AS enrolled_count,
+                (SELECT COUNT(*) FROM training_enrollment te WHERE te.slot_id = ts.id AND te.waitlist = true) AS waitlist_count,
                 (SELECT COUNT(*) FROM training_comment tc WHERE tc.slot_id = ts.id) AS comments_count,
                 COALESCE(ts.start_time, t.start_time) AS start_time,
                 COALESCE(ts.end_time, t.end_time) AS end_time,
@@ -58,6 +60,7 @@ public class TrainingSlot {
         .startTime(rs.getTime("start_time").toLocalTime())
         .endTime(rs.getTime("end_time").toLocalTime())
         .enrolledCount(rs.getInt("enrolled_count"))
+        .waitlistCount(rs.getInt("waitlist_count"))
         .maxPlayers(rs.getInt("max_players"))
         .commentsCount(rs.getInt("comments_count"))
         .features(rs.getString("features"))

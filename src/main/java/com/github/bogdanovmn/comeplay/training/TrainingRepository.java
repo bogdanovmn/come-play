@@ -243,10 +243,10 @@ class TrainingRepository {
         return !result.isEmpty();
     }
 
-    void enroll(UUID slotId, UUID userId, UUID friendId, UUID enrolledBy) {
+    void enroll(UUID slotId, UUID userId, UUID friendId, UUID enrolledBy, boolean waitlist) {
         jdbc.update("""
-                INSERT INTO training_enrollment (slot_id, user_id, friend_id, enrolled_by)
-                VALUES (:slotId, :userId, :friendId, :enrolledBy)
+                INSERT INTO training_enrollment (slot_id, user_id, friend_id, enrolled_by, waitlist)
+                VALUES (:slotId, :userId, :friendId, :enrolledBy, :waitlist)
                 ON CONFLICT DO NOTHING
                 """,
             new MapSqlParameterSource()
@@ -254,6 +254,7 @@ class TrainingRepository {
                 .addValue("userId", userId)
                 .addValue("friendId", friendId)
                 .addValue("enrolledBy", enrolledBy)
+                .addValue("waitlist", waitlist)
         );
     }
 
@@ -270,11 +271,50 @@ class TrainingRepository {
         );
     }
 
+    List<UUID> listFutureSlotIds(UUID trainingId) {
+        return jdbc.query("""
+                SELECT id FROM training_slot
+                WHERE training_id = :trainingId AND slot_date >= CURRENT_DATE
+                ORDER BY slot_date
+                """,
+            Map.of("trainingId", trainingId),
+            (rs, rowNum) -> UUID.fromString(rs.getString("id"))
+        );
+    }
+
+    int promoteFromWaitlist(UUID slotId) {
+        return jdbc.update("""
+                UPDATE training_enrollment
+                SET waitlist = false
+                WHERE id IN (
+                    SELECT e.id
+                    FROM training_enrollment e
+                    WHERE e.slot_id = :slotId AND e.waitlist = true
+                    ORDER BY e.enrolled_at, e.id
+                    LIMIT GREATEST(
+                        (
+                            SELECT COALESCE(ts.max_players, t.max_players)
+                            FROM training_slot ts
+                            JOIN training t ON t.id = ts.training_id
+                            WHERE ts.id = :slotId
+                        ) - (
+                            SELECT COUNT(*)
+                            FROM training_enrollment te
+                            WHERE te.slot_id = :slotId AND te.waitlist = false
+                        ),
+                        0
+                    )
+                )
+                """,
+            Map.of("slotId", slotId)
+        );
+    }
+
     List<Enrollment> listEnrollments(UUID slotId) {
         return jdbc.query("""
                 SELECT e.slot_id, e.user_id, e.friend_id,
                     COALESCE(u.display_name, f.name) AS name,
-                    e.enrolled_by, e.enrolled_at, e.coming_later,
+                    e.enrolled_by, e.enrolled_at, e.coming_later, e.waitlist,
                     COALESCE(c.owner_id = e.user_id, false) AS is_owner,
                     COALESCE(cps.skill, ps.skill) AS skill
                 FROM training_enrollment e
@@ -286,7 +326,7 @@ class TrainingRepository {
                 LEFT JOIN club_player_skill cps ON cps.club_id = c.id AND cps.user_id = e.user_id
                 LEFT JOIN player_skill ps ON ps.user_id = e.user_id AND ps.sport_type_id = c.sport_type_id
                 WHERE e.slot_id = :slotId
-                ORDER BY e.enrolled_at
+                ORDER BY e.waitlist, e.enrolled_at, e.id
                 """,
             Map.of("slotId", slotId),
             (rs, rowNum) -> Enrollment.builder()
@@ -299,6 +339,7 @@ class TrainingRepository {
                 .comingLater(rs.getBoolean("coming_later"))
                 .skill(rs.getString("skill") != null ? SkillLevel.valueOf(rs.getString("skill")) : null)
                 .owner(rs.getBoolean("is_owner"))
+                .waitlist(rs.getBoolean("waitlist"))
                 .build()
         );
     }
