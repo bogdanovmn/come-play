@@ -45,6 +45,7 @@ class WebSecurity {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers(HttpMethod.GET, "/clubs/invitations/*").permitAll()
+				.requestMatchers(HttpMethod.GET, "/version").permitAll()
 				.requestMatchers("/actuator/**").permitAll()
 				.anyRequest().authenticated()
 			)
