@@ -28,4 +28,6 @@ class CreateTrainingRequest {
 
     @Size(max = 1000)
     String features;
+
+    boolean oneOff;
 }

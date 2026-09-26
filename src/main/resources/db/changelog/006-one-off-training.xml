@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="006-one-off-training" author="come-play">
+        <sql>
+            ALTER TABLE training ADD COLUMN one_off boolean NOT NULL DEFAULT false;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

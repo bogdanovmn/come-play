@@ -12,9 +12,12 @@ import java.time.LocalTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -34,6 +37,10 @@ class TrainingServiceTest {
     private final UUID userId = UUID.randomUUID();
 
     private Training training(DayOfWeek dayOfWeek) {
+        return training(dayOfWeek, false);
+    }
+
+    private Training training(DayOfWeek dayOfWeek, boolean oneOff) {
         return Training.builder()
             .id(trainingId)
             .clubId(UUID.randomUUID())
@@ -42,6 +49,7 @@ class TrainingServiceTest {
             .endTime(LocalTime.of(20, 0))
             .maxPlayers(10)
             .features(null)
+            .oneOff(oneOff)
             .build();
     }
 
@@ -71,12 +79,17 @@ class TrainingServiceTest {
     }
 
     private CreateTrainingRequest request(DayOfWeek dayOfWeek) {
+        return request(dayOfWeek, false);
+    }
+
+    private CreateTrainingRequest request(DayOfWeek dayOfWeek, boolean oneOff) {
         return CreateTrainingRequest.builder()
             .dayOfWeek(dayOfWeek)
             .startTime(LocalTime.of(18, 0))
             .endTime(LocalTime.of(20, 0))
             .maxPlayers(10)
             .features(null)
+            .oneOff(oneOff)
             .build();
     }
 
@@ -87,6 +100,98 @@ class TrainingServiceTest {
         trainingService.update(trainingId, request(DayOfWeek.WEDNESDAY), userId);
 
         verify(trainingRepository).deleteFutureSlots(trainingId);
+    }
+
+    @Test
+    void createDoesNotCreateSlotForRecurringTraining() {
+        when(trainingRepository.create(any(), anyInt(), any(), any(), anyInt(), any(), anyBoolean())).thenReturn(trainingId);
+
+        trainingService.create(UUID.randomUUID(), request(DayOfWeek.MONDAY), userId);
+
+        verify(trainingRepository, never()).createSlotIfNotExists(any(), any());
+    }
+
+    @Test
+    void createCreatesSingleSlotOnNearestDateForOneOffTraining() {
+        UUID clubId = UUID.randomUUID();
+        when(trainingRepository.create(any(), anyInt(), any(), any(), anyInt(), any(), anyBoolean())).thenReturn(trainingId);
+        LocalDate expectedDate = TrainingService.nearestSlotDate(
+            DayOfWeek.MONDAY, LocalTime.of(18, 0), LocalDate.now(), LocalTime.now()
+        );
+
+        TrainingBrief created = trainingService.create(clubId, request(DayOfWeek.MONDAY, true), userId);
+
+        verify(trainingRepository).createSlotIfNotExists(trainingId, expectedDate);
+        assertTrue(created.isOneOff());
+        assertEquals(expectedDate, created.getSlotDate());
+    }
+
+    @Test
+    void updateMovesOneOffSlotWhenDayOfWeekChanged() {
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY, true)));
+        when(trainingRepository.findNextSlotDate(trainingId)).thenReturn(Optional.of(LocalDate.now().plusDays(7)));
+
+        trainingService.update(trainingId, request(DayOfWeek.WEDNESDAY, true), userId);
+
+        verify(trainingRepository, never()).deleteFutureSlots(any());
+        verify(trainingRepository).moveSlot(
+            eq(trainingId),
+            eq(LocalDate.now().plusDays(7)),
+            any(LocalDate.class)
+        );
+    }
+
+    @Test
+    void updateKeepsOneOffSlotWhenDayOfWeekUnchanged() {
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY, true)));
+
+        trainingService.update(trainingId, request(DayOfWeek.MONDAY, true), userId);
+
+        verify(trainingRepository, never()).moveSlot(any(), any(), any());
+        verify(trainingRepository, never()).deleteFutureSlots(any());
+    }
+
+    @Test
+    void updateCreatesOneOffSlotWhenOnlyPastSlotExists() {
+        when(trainingRepository.findById(trainingId)).thenReturn(Optional.of(training(DayOfWeek.MONDAY, true)));
+        when(trainingRepository.findNextSlotDate(trainingId)).thenReturn(Optional.empty());
+
+        trainingService.update(trainingId, request(DayOfWeek.WEDNESDAY, true), userId);
+
+        verify(trainingRepository, never()).moveSlot(any(), any(), any());
+        verify(trainingRepository).createSlotIfNotExists(eq(trainingId), any(LocalDate.class));
+    }
+
+    @Test
+    void nearestSlotDateKeepsTodayWhenStartTimeIsNotPassedYet() {
+        LocalDate monday = LocalDate.of(2026, 9, 28);
+
+        LocalDate result = TrainingService.nearestSlotDate(DayOfWeek.MONDAY, LocalTime.of(18, 0), monday, LocalTime.of(10, 0));
+
+        assertEquals(monday, result);
+    }
+
+    @Test
+    void nearestSlotDateMovesToNextWeekWhenStartTimeIsAlreadyPassed() {
+        LocalDate monday = LocalDate.of(2026, 9, 28);
+
+        LocalDate result = TrainingService.nearestSlotDate(DayOfWeek.MONDAY, LocalTime.of(18, 0), monday, LocalTime.of(19, 0));
+
+        assertEquals(LocalDate.of(2026, 10, 5), result);
+    }
+
+    @Test
+    void nearestSlotDateFindsClosestDateWithGivenDayOfWeek() {
+        LocalDate monday = LocalDate.of(2026, 9, 28);
+
+        assertEquals(
+            LocalDate.of(2026, 9, 30),
+            TrainingService.nearestSlotDate(DayOfWeek.WEDNESDAY, LocalTime.of(18, 0), monday, LocalTime.of(19, 0))
+        );
+        assertEquals(
+            LocalDate.of(2026, 10, 4),
+            TrainingService.nearestSlotDate(DayOfWeek.SUNDAY, LocalTime.of(18, 0), monday, LocalTime.of(19, 0))
+        );
     }
 
     @Test

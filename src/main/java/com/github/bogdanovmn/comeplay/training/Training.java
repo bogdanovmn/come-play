@@ -17,4 +17,5 @@ class Training {
     LocalTime endTime;
     int maxPlayers;
     String features;
+    boolean oneOff;
 }

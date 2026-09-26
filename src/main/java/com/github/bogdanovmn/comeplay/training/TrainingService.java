@@ -8,7 +8,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -40,14 +42,26 @@ class TrainingService {
     public TrainingBrief create(UUID clubId, CreateTrainingRequest request, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
         requireValidTimeRange(request.getStartTime(), request.getEndTime());
+        boolean oneOff = request.isOneOff();
         UUID trainingId = trainingRepository.create(
             clubId,
             request.getDayOfWeek().getValue(),
             request.getStartTime(),
             request.getEndTime(),
             request.getMaxPlayers(),
-            request.getFeatures()
+            request.getFeatures(),
+            oneOff
         );
+        LocalDate slotDate = null;
+        if (oneOff) {
+            slotDate = nearestSlotDate(
+                request.getDayOfWeek(),
+                request.getStartTime(),
+                LocalDate.now(),
+                LocalTime.now()
+            );
+            trainingRepository.createSlotIfNotExists(trainingId, slotDate);
+        }
         return TrainingBrief.builder()
             .id(trainingId)
             .dayOfWeek(request.getDayOfWeek())
@@ -55,6 +69,8 @@ class TrainingService {
             .endTime(request.getEndTime())
             .maxPlayers(request.getMaxPlayers())
             .features(request.getFeatures())
+            .oneOff(oneOff)
+            .slotDate(slotDate)
             .build();
     }
 
@@ -74,7 +90,11 @@ class TrainingService {
             request.getFeatures()
         );
         if (dayChanged) {
-            trainingRepository.deleteFutureSlots(trainingId);
+            if (training.isOneOff()) {
+                rescheduleOneOffSlot(trainingId, request);
+            } else {
+                trainingRepository.deleteFutureSlots(trainingId);
+            }
         }
         trainingRepository.listFutureSlotIds(trainingId)
             .forEach(trainingRepository::promoteFromWaitlist);
@@ -85,6 +105,8 @@ class TrainingService {
             .endTime(request.getEndTime())
             .maxPlayers(request.getMaxPlayers())
             .features(request.getFeatures())
+            .oneOff(training.isOneOff())
+            .slotDate(training.isOneOff() ? trainingRepository.findNextSlotDate(trainingId).orElse(null) : null)
             .build();
     }
 
@@ -234,6 +256,31 @@ class TrainingService {
         accessManagement.requireOwner(training.getClubId(), userId);
         trainingRepository.setSlotCancelled(slotId, cancelled);
         return trainingRepository.findSlotById(slotId, userId).orElseThrow();
+    }
+
+    private void rescheduleOneOffSlot(UUID trainingId, CreateTrainingRequest request) {
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        LocalDate currentDate = trainingRepository.findNextSlotDate(trainingId).orElse(null);
+        if (currentDate == null) {
+            trainingRepository.createSlotIfNotExists(
+                trainingId,
+                nearestSlotDate(request.getDayOfWeek(), request.getStartTime(), today, now)
+            );
+            return;
+        }
+        LocalDate from = currentDate.isAfter(today) ? currentDate : today;
+        trainingRepository.moveSlot(
+            trainingId,
+            currentDate,
+            nearestSlotDate(request.getDayOfWeek(), request.getStartTime(), from, now)
+        );
+    }
+
+    static LocalDate nearestSlotDate(DayOfWeek dayOfWeek, LocalTime startTime, LocalDate from, LocalTime now) {
+        LocalDate date = from.plusDays((dayOfWeek.getValue() - from.getDayOfWeek().getValue() + 7) % 7);
+        boolean startsInPast = date.isEqual(from) && !LocalDateTime.of(date, startTime).isAfter(LocalDateTime.of(from, now));
+        return startsInPast ? date.plusWeeks(1) : date;
     }
 
     private void requireValidTimeRange(LocalTime startTime, LocalTime endTime) {

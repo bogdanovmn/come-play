@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -16,4 +17,6 @@ class TrainingBrief {
     LocalTime endTime;
     int maxPlayers;
     String features;
+    boolean oneOff;
+    LocalDate slotDate;
 }

@@ -31,6 +31,8 @@ class TrainingRepository {
         .endTime(rs.getTime("end_time").toLocalTime())
         .maxPlayers(rs.getInt("max_players"))
         .features(rs.getString("features"))
+        .oneOff(rs.getBoolean("one_off"))
+        .slotDate(rs.getDate("slot_date") != null ? rs.getDate("slot_date").toLocalDate() : null)
     .build();
 
     private static Instant wallClockToInstant(LocalDateTime wallClock) {
@@ -41,10 +43,13 @@ class TrainingRepository {
 
     List<TrainingBrief> listByClub(UUID clubId) {
         return jdbc.query("""
-                SELECT id, day_of_week, start_time, end_time, max_players, features
-                FROM training
-                WHERE club_id = :clubId
-                ORDER BY day_of_week, start_time
+                SELECT t.id, t.day_of_week, t.start_time, t.end_time, t.max_players, t.features, t.one_off,
+                    CASE WHEN t.one_off
+                        THEN (SELECT MIN(ts.slot_date) FROM training_slot ts WHERE ts.training_id = t.id)
+                    END AS slot_date
+                FROM training t
+                WHERE t.club_id = :clubId
+                ORDER BY t.day_of_week, t.start_time
                 """,
             Map.of("clubId", clubId),
             TRAINING_BRIEF_ROW_MAPPER
@@ -53,7 +58,7 @@ class TrainingRepository {
 
     Optional<Training> findById(UUID trainingId) {
         List<Training> result = jdbc.query("""
-                SELECT id, club_id, day_of_week, start_time, end_time, max_players, features
+                SELECT id, club_id, day_of_week, start_time, end_time, max_players, features, one_off
                 FROM training
                 WHERE id = :trainingId
                 """,
@@ -66,15 +71,16 @@ class TrainingRepository {
                 .endTime(rs.getTime("end_time").toLocalTime())
                 .maxPlayers(rs.getInt("max_players"))
                 .features(rs.getString("features"))
+                .oneOff(rs.getBoolean("one_off"))
             .build()
         );
         return result.stream().findFirst();
     }
 
-    UUID create(UUID clubId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers, String features) {
+    UUID create(UUID clubId, int dayOfWeek, LocalTime startTime, LocalTime endTime, int maxPlayers, String features, boolean oneOff) {
         return jdbc.queryForObject("""
-                INSERT INTO training (club_id, day_of_week, start_time, end_time, max_players, features)
-                VALUES (:clubId, :dayOfWeek, :startTime, :endTime, :maxPlayers, :features)
+                INSERT INTO training (club_id, day_of_week, start_time, end_time, max_players, features, one_off)
+                VALUES (:clubId, :dayOfWeek, :startTime, :endTime, :maxPlayers, :features, :oneOff)
                 RETURNING id
                 """,
             new MapSqlParameterSource()
@@ -83,7 +89,8 @@ class TrainingRepository {
                 .addValue("startTime", Time.valueOf(startTime))
                 .addValue("endTime", Time.valueOf(endTime))
                 .addValue("maxPlayers", maxPlayers)
-                .addValue("features", features),
+                .addValue("features", features)
+                .addValue("oneOff", oneOff),
             UUID.class
         );
     }
@@ -203,6 +210,29 @@ class TrainingRepository {
         return result.stream().findFirst();
     }
 
+    Optional<LocalDate> findNextSlotDate(UUID trainingId) {
+        return jdbc.query("""
+                SELECT slot_date
+                FROM training_slot
+                WHERE training_id = :trainingId AND slot_date >= CURRENT_DATE
+                ORDER BY slot_date
+                LIMIT 1
+                """,
+            Map.of("trainingId", trainingId),
+            (rs, rowNum) -> rs.getDate("slot_date").toLocalDate()
+        ).stream().findFirst();
+    }
+
+    void moveSlot(UUID trainingId, LocalDate fromDate, LocalDate toDate) {
+        jdbc.update("""
+                UPDATE training_slot
+                SET slot_date = :toDate
+                WHERE training_id = :trainingId AND slot_date = :fromDate
+                """,
+            Map.of("trainingId", trainingId, "fromDate", fromDate, "toDate", toDate)
+        );
+    }
+
     UUID createSlotIfNotExists(UUID trainingId, LocalDate slotDate) {
         return jdbc.queryForObject("""
                 INSERT INTO training_slot (training_id, slot_date)
@@ -220,7 +250,7 @@ class TrainingRepository {
         for (var template : jdbc.queryForList("""
                 SELECT id, day_of_week
                 FROM training
-                WHERE club_id = :clubId
+                WHERE club_id = :clubId AND one_off = false
                 """,
             Map.of("clubId", clubId)
         )) {

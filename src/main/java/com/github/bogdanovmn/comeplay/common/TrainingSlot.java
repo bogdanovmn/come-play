@@ -28,6 +28,7 @@ public class TrainingSlot {
     boolean overridden;
     boolean cancelled;
     boolean enrolled;
+    boolean oneOff;
 
     public static final String SELECT = """
             SELECT ts.id, ts.training_id, ts.slot_date, ts.cancelled,
@@ -44,6 +45,7 @@ public class TrainingSlot {
                     WHERE tev.slot_id = ts.id AND tev.user_id = :viewerId
                 ), false) AS is_enrolled,
                 t.day_of_week,
+                t.one_off,
                 c.id AS club_id, c.name AS club_name
             FROM training_slot ts
             JOIN training t ON t.id = ts.training_id
@@ -67,5 +69,6 @@ public class TrainingSlot {
         .overridden(rs.getBoolean("overridden"))
         .cancelled(rs.getBoolean("cancelled"))
         .enrolled(rs.getBoolean("is_enrolled"))
+        .oneOff(rs.getBoolean("one_off"))
     .build();
 }
