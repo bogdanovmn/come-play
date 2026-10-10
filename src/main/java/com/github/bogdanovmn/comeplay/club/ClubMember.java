@@ -12,6 +12,7 @@ class ClubMember {
     UUID id;
     String name;
     SkillLevel skill;
+    SkillLevel ownSkill;
     boolean owner;
     boolean overridden;
 }

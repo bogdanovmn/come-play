@@ -235,6 +235,7 @@ class ClubRepository {
                 SELECT u.id, u.display_name AS name,
                     c.owner_id = u.id AS is_owner,
                     cps.skill IS NOT NULL AS overridden,
+                    ps.skill AS own_skill,
                     COALESCE(cps.skill, ps.skill) AS skill
                 FROM club_member cm
                 JOIN app_user u ON u.id = cm.user_id
@@ -249,6 +250,7 @@ class ClubRepository {
                         .id(UUID.fromString(rs.getString("id")))
                         .name(rs.getString("name"))
                         .skill(rs.getString("skill") != null ? SkillLevel.valueOf(rs.getString("skill")) : null)
+                        .ownSkill(rs.getString("own_skill") != null ? SkillLevel.valueOf(rs.getString("own_skill")) : null)
                         .owner(rs.getBoolean("is_owner"))
                         .overridden(rs.getBoolean("overridden"))
                         .build()
