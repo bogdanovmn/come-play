@@ -44,12 +44,16 @@ class ClubController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     ClubBrief create(@Valid @RequestBody CreateClubRequest request, @CurrentUserId UUID userId) {
-        return clubService.create(request.getName(), request.getSportTypeId(), request.getDescription(), userId);
+        return clubService.create(request, userId);
     }
 
     @PutMapping("/{clubId}")
-    void update(@PathVariable UUID clubId, @Valid @RequestBody UpdateClubRequest request, @CurrentUserId UUID userId) {
-        clubService.update(clubId, request.getName(), request.getSportTypeId(), request.getDescription(), userId);
+    void update(
+        @PathVariable UUID clubId,
+        @Valid @RequestBody UpdateClubRequest request,
+        @CurrentUserId UUID userId
+    ) {
+        clubService.update(clubId, request, userId);
     }
 
     @PutMapping("/{clubId}/close")
@@ -60,6 +64,21 @@ class ClubController {
     @PutMapping("/{clubId}/open")
     void open(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
         clubService.open(clubId, userId);
+    }
+
+    @GetMapping("/{clubId}/comments")
+    List<ClubComment> listComments(@PathVariable UUID clubId, @CurrentUserId UUID userId) {
+        return clubService.listComments(clubId, userId);
+    }
+
+    @PostMapping("/{clubId}/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    ClubComment createComment(
+        @PathVariable UUID clubId,
+        @Valid @RequestBody CreateClubCommentRequest request,
+        @CurrentUserId UUID userId
+    ) {
+        return clubService.createComment(clubId, request.getText(), userId);
     }
 
     @GetMapping("/{clubId}/invitations")

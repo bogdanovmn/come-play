@@ -5,7 +5,7 @@ import com.github.bogdanovmn.comeplay.common.SkillLevel;
 import com.github.bogdanovmn.comeplay.security.AccessManagement;
 import com.github.bogdanovmn.comeplay.sport.SportType;
 import com.github.bogdanovmn.comeplay.sport.SportTypeService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,13 +15,27 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 class ClubService {
 
     private final ClubRepository clubRepository;
     private final AccessManagement accessManagement;
     private final SportTypeService sportTypeService;
     private final PlayerSkillRepository playerSkillRepository;
+    private final int clubCommentsLimit;
+
+    ClubService(
+        ClubRepository clubRepository,
+        AccessManagement accessManagement,
+        SportTypeService sportTypeService,
+        PlayerSkillRepository playerSkillRepository,
+        @Value("${comeplay.club-comments-limit}") int clubCommentsLimit
+    ) {
+        this.clubRepository = clubRepository;
+        this.accessManagement = accessManagement;
+        this.sportTypeService = sportTypeService;
+        this.playerSkillRepository = playerSkillRepository;
+        this.clubCommentsLimit = clubCommentsLimit;
+    }
 
     @Transactional(readOnly = true)
     public List<ClubBrief> listByOwner(UUID userId) {
@@ -41,13 +55,23 @@ class ClubService {
     }
 
     @Transactional
-    public ClubBrief create(String name, int sportTypeId, String description, UUID ownerId) {
+    public ClubBrief create(CreateClubRequest request, UUID ownerId) {
+        int sportTypeId = request.getSportTypeId();
         String sportTypeName = sportTypeService.requireById(sportTypeId).getName();
-        UUID clubId = clubRepository.create(name, sportTypeId, description, ownerId);
+        int scheduleDays = request.getScheduleDays() == null
+                ? Club.DEFAULT_SCHEDULE_DAYS
+                : request.getScheduleDays();
+        UUID clubId = clubRepository.create(
+                request.getName(),
+                sportTypeId,
+                request.getDescription(),
+                scheduleDays,
+                ownerId
+        );
         clubRepository.addMember(clubId, ownerId);
         return ClubBrief.builder()
                 .id(clubId)
-                .name(name)
+                .name(request.getName())
                 .sportTypeId(sportTypeId)
                 .sportTypeName(sportTypeName)
                 .membersCount(1)
@@ -55,10 +79,16 @@ class ClubService {
     }
 
     @Transactional
-    public void update(UUID clubId, String name, int sportTypeId, String description, UUID userId) {
+    public void update(UUID clubId, UpdateClubRequest request, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
-        sportTypeService.requireById(sportTypeId);
-        clubRepository.update(clubId, name, sportTypeId, description);
+        sportTypeService.requireById(request.getSportTypeId());
+        clubRepository.update(
+                clubId,
+                request.getName(),
+                request.getSportTypeId(),
+                request.getDescription(),
+                request.getScheduleDays()
+        );
     }
 
     @Transactional
@@ -71,6 +101,20 @@ class ClubService {
     public void open(UUID clubId, UUID userId) {
         accessManagement.requireOwner(clubId, userId);
         clubRepository.open(clubId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClubComment> listComments(UUID clubId, UUID userId) {
+        accessManagement.requireMember(clubId, userId);
+        return clubRepository.listComments(clubId, clubCommentsLimit);
+    }
+
+    @Transactional
+    public ClubComment createComment(UUID clubId, String text, UUID userId) {
+        accessManagement.requireMember(clubId, userId);
+        UUID commentId = clubRepository.createComment(clubId, userId, text);
+        return clubRepository.findCommentById(commentId)
+                .orElseThrow(() -> new NoSuchElementException("Comment not found: " + commentId));
     }
 
     @Transactional

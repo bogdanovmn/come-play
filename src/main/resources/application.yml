@@ -13,6 +13,9 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.xml
 
 
+comeplay:
+  club-comments-limit: 100
+
 security.roles.application-id-prefix: comeplay
 
 server:

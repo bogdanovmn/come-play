@@ -48,7 +48,7 @@ class TrainingRepository {
                         THEN (SELECT MIN(ts.slot_date) FROM training_slot ts WHERE ts.training_id = t.id)
                     END AS slot_date
                 FROM training t
-                WHERE t.club_id = :clubId
+                WHERE t.club_id = :clubId AND t.active = true
                 ORDER BY t.day_of_week, t.start_time
                 """,
             Map.of("clubId", clubId),
@@ -96,26 +96,33 @@ class TrainingRepository {
     }
 
     void delete(UUID trainingId) {
-        jdbc.update("""
-                DELETE FROM training_comment
-                WHERE slot_id IN (SELECT id FROM training_slot WHERE training_id = :trainingId)
-                """,
-            Map.of("trainingId", trainingId)
-        );
-        jdbc.update("""
-                DELETE FROM training_enrollment
-                WHERE slot_id IN (SELECT id FROM training_slot WHERE training_id = :trainingId)
-                """,
-            Map.of("trainingId", trainingId)
-        );
-        jdbc.update("""
-                DELETE FROM training_slot
+        deleteFutureSlots(trainingId);
+        if (hasSlots(trainingId)) {
+            deactivate(trainingId);
+        } else {
+            jdbc.update("""
+                    DELETE FROM training WHERE id = :trainingId
+                    """,
+                Map.of("trainingId", trainingId)
+            );
+        }
+    }
+
+    private boolean hasSlots(UUID trainingId) {
+        Integer slotsCount = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM training_slot
                 WHERE training_id = :trainingId
                 """,
-            Map.of("trainingId", trainingId)
+            Map.of("trainingId", trainingId),
+            Integer.class
         );
+        return slotsCount != null && slotsCount > 0;
+    }
+
+    private void deactivate(UUID trainingId) {
         jdbc.update("""
-                DELETE FROM training WHERE id = :trainingId
+                UPDATE training SET active = false WHERE id = :trainingId
                 """,
             Map.of("trainingId", trainingId)
         );
@@ -250,7 +257,7 @@ class TrainingRepository {
         for (var template : jdbc.queryForList("""
                 SELECT id, day_of_week
                 FROM training
-                WHERE club_id = :clubId AND one_off = false
+                WHERE club_id = :clubId AND active = true AND one_off = false
                 """,
             Map.of("clubId", clubId)
         )) {
@@ -454,13 +461,12 @@ class TrainingRepository {
                     features = :features
                 WHERE id = :slotId
                 """,
-            Map.of(
-                "slotId", slotId,
-                "startTime", Time.valueOf(startTime),
-                "endTime", Time.valueOf(endTime),
-                "maxPlayers", maxPlayers,
-                "features", features
-            )
+            new MapSqlParameterSource()
+                .addValue("slotId", slotId)
+                .addValue("startTime", Time.valueOf(startTime))
+                .addValue("endTime", Time.valueOf(endTime))
+                .addValue("maxPlayers", maxPlayers)
+                .addValue("features", features)
         );
     }
 

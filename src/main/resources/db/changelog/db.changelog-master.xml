@@ -11,5 +11,7 @@
     <include file="db/changelog/004-training-cancelled.xml"/>
     <include file="db/changelog/005-enrollment-waitlist.xml"/>
     <include file="db/changelog/006-one-off-training.xml"/>
+    <include file="db/changelog/007-club-comments-and-schedule-days.xml"/>
+    <include file="db/changelog/008-training-soft-delete.xml"/>
 
 </databaseChangeLog>

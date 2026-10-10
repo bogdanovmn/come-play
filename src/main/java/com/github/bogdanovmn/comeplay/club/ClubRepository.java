@@ -25,6 +25,7 @@ class ClubRepository {
             .ownerName(rs.getString("owner_name"))
             .description(rs.getString("description"))
             .closed(rs.getBoolean("closed"))
+            .scheduleDays(rs.getInt("schedule_days"))
             .createdAt(rs.getTimestamp("created_at").toInstant())
             .build();
 
@@ -78,7 +79,8 @@ class ClubRepository {
     Optional<Club> findById(UUID clubId) {
         var result = jdbc.query("""
                 SELECT c.id, c.name, c.sport_type_id, st.name AS sport_type_name,
-                    c.owner_id, u.display_name AS owner_name, c.description, c.closed, c.created_at
+                    c.owner_id, u.display_name AS owner_name, c.description, c.closed,
+                    c.schedule_days, c.created_at
                 FROM club c
                 JOIN sport_type st ON st.id = c.sport_type_id
                 JOIN app_user u ON u.id = c.owner_id
@@ -90,27 +92,37 @@ class ClubRepository {
         return result.stream().findFirst();
     }
 
-    UUID create(String name, int sportTypeId, String description, UUID ownerId) {
+    UUID create(String name, int sportTypeId, String description, int scheduleDays, UUID ownerId) {
         return jdbc.queryForObject("""
-                INSERT INTO club (name, sport_type_id, description, owner_id, closed)
-                VALUES (:name, :sportTypeId, :description, :ownerId, false)
+                INSERT INTO club (name, sport_type_id, description, schedule_days, owner_id, closed)
+                VALUES (:name, :sportTypeId, :description, :scheduleDays, :ownerId, false)
                 RETURNING id
                 """,
                 new MapSqlParameterSource()
                     .addValue("name", name)
                     .addValue("sportTypeId", sportTypeId)
                     .addValue("description", description)
+                    .addValue("scheduleDays", scheduleDays)
                     .addValue("ownerId", ownerId),
                 UUID.class
         );
     }
 
-    void update(UUID clubId, String name, int sportTypeId, String description) {
+    void update(UUID clubId, String name, int sportTypeId, String description, int scheduleDays) {
         jdbc.update("""
-                UPDATE club SET name = :name, sport_type_id = :sportTypeId, description = :description
+                UPDATE club
+                SET name = :name,
+                    sport_type_id = :sportTypeId,
+                    description = :description,
+                    schedule_days = :scheduleDays
                 WHERE id = :clubId
                 """,
-                Map.of("clubId", clubId, "name", name, "sportTypeId", sportTypeId, "description", description)
+                new MapSqlParameterSource()
+                    .addValue("clubId", clubId)
+                    .addValue("name", name)
+                    .addValue("sportTypeId", sportTypeId)
+                    .addValue("description", description)
+                    .addValue("scheduleDays", scheduleDays)
         );
     }
 
@@ -128,6 +140,58 @@ class ClubRepository {
                 """,
                 Map.of("clubId", clubId)
         );
+    }
+
+    private static final RowMapper<ClubComment> CLUB_COMMENT_ROW_MAPPER = (rs, rowNum) -> ClubComment.builder()
+            .id(UUID.fromString(rs.getString("id")))
+            .clubId(UUID.fromString(rs.getString("club_id")))
+            .userId(UUID.fromString(rs.getString("user_id")))
+            .authorName(rs.getString("author_name"))
+            .text(rs.getString("text"))
+            .createdAt(rs.getTimestamp("created_at").toInstant())
+            .build();
+
+    List<ClubComment> listComments(UUID clubId, int limit) {
+        return jdbc.query("""
+                SELECT cc.id, cc.club_id, cc.user_id, COALESCE(u.display_name, 'Игрок') AS author_name,
+                    cc.text, cc.created_at
+                FROM club_comment cc
+                LEFT JOIN app_user u ON u.id = cc.user_id
+                WHERE cc.club_id = :clubId
+                ORDER BY cc.created_at DESC, cc.id DESC
+                LIMIT :limit
+                """,
+                Map.of("clubId", clubId, "limit", limit),
+                CLUB_COMMENT_ROW_MAPPER
+        );
+    }
+
+    UUID createComment(UUID clubId, UUID userId, String text) {
+        return jdbc.queryForObject("""
+                INSERT INTO club_comment (club_id, user_id, text)
+                VALUES (:clubId, :userId, :text)
+                RETURNING id
+                """,
+                Map.of(
+                        "clubId", clubId,
+                        "userId", userId,
+                        "text", text
+                ),
+                UUID.class
+        );
+    }
+
+    Optional<ClubComment> findCommentById(UUID commentId) {
+        return jdbc.query("""
+                SELECT cc.id, cc.club_id, cc.user_id, COALESCE(u.display_name, 'Игрок') AS author_name,
+                    cc.text, cc.created_at
+                FROM club_comment cc
+                LEFT JOIN app_user u ON u.id = cc.user_id
+                WHERE cc.id = :commentId
+                """,
+                Map.of("commentId", commentId),
+                CLUB_COMMENT_ROW_MAPPER
+        ).stream().findFirst();
     }
 
     boolean isOwner(UUID clubId, UUID userId) {
