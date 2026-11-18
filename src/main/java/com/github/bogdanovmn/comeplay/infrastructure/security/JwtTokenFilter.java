@@ -1,5 +1,6 @@
 package com.github.bogdanovmn.comeplay.infrastructure.security;
 
+import com.github.bogdanovmn.comeplay.user.AppUserRegistrar;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import jakarta.servlet.FilterChain;
@@ -25,6 +26,7 @@ class JwtTokenFilter extends OncePerRequestFilter {
 
 	private final JwtInstance jwtInstance;
 	private final JwtBasedUserDetailsFactory jwtBasedUserDetailsFactory;
+	private final AppUserRegistrar appUserRegistrar;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request,
@@ -59,6 +61,17 @@ class JwtTokenFilter extends OncePerRequestFilter {
 			new WebAuthenticationDetailsSource().buildDetails(request)
 		);
 		SecurityContextHolder.getContext().setAuthentication(authentication);
+
+		// The user may be authenticated via a shared SSO token without ever calling
+		// the profile API, so create the local app_user record before any business
+		// operation can reference it through a foreign key.
+		if (userDetails instanceof JwtBasedUserDetails jwtUserDetails) {
+			appUserRegistrar.ensureRegistered(
+				jwtUserDetails.getUserId(),
+				jwtUserDetails.getUsername()
+			);
+		}
+
 		chain.doFilter(request, response);
 	}
 
